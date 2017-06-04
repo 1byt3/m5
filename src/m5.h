@@ -132,4 +132,24 @@ enum m5_reason_code {
 	M5_RC_WILDCARD_SUBSCRIPTION_NOT_SUPPORTED
 };
 
+struct m5_connect {
+	uint8_t *client_id;
+	uint8_t *will_topic;
+	uint8_t *will_msg;
+	uint8_t *user_name;
+	uint8_t *password;
+
+	uint16_t client_id_len;
+	uint16_t will_topic_len;
+	uint16_t will_msg_len;
+	uint16_t user_name_len;
+	uint16_t password_len;
+
+	uint16_t keep_alive;
+
+	uint8_t will_retain;
+	uint8_t will_qos;
+	uint8_t clean_start;
+};
+
 #endif
