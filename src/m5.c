@@ -165,6 +165,12 @@ static void m5_str_add(struct app_buf *buf, const char *str)
 	m5_add_binary(buf, (uint8_t *)str, strlen(str));
 }
 
+/* Recovers a 2 byte, converted to host order */
+static uint16_t m5_u16(uint8_t *data)
+{
+	return (data[0] << 8) + data[1];
+}
+
 static int m5_connect_payload_wsize(struct m5_connect *msg,
 				    uint32_t *wire_size)
 {

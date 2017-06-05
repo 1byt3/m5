@@ -144,10 +144,30 @@ static void test_m5_add_u16(void)
 	}
 }
 
+static void test_m5_add_str(void)
+{
+	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
+			       .size = sizeof(data)};
+	const char *str = "Hello, World!";
+
+	TEST_HDR(__func__);
+
+	m5_str_add(&buf, str);
+
+	if (m5_u16(buf.data) != strlen(str)) {
+		exit(1);
+	}
+
+	if (memcmp(buf.data + 2, str, strlen(str)) != 0) {
+		exit(1);
+	}
+}
+
 int main(void)
 {
 	test_int_encoding();
 	test_m5_add_u16();
+	test_m5_add_str();
 
 	return 0;
 }
