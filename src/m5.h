@@ -152,4 +152,6 @@ struct m5_connect {
 	uint8_t clean_start;
 };
 
+int m5_pack_connect(struct app_buf *buf, struct m5_connect *msg);
+
 #endif
