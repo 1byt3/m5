@@ -47,6 +47,13 @@
 #define APPBUF_FREE_WRITE_SPACE(buf) (buf->size - buf->len)
 #define APPBUF_DATAPTR_CURRENT(buf) (buf->data + buf->offset)
 
+#define M5_BINARY_LEN_SIZE	2u
+#define M5_STR_LEN_SIZE		M5_BINARY_LEN_SIZE
+#define M5_INT_LEN_SIZE		2
+#define M5_PROTO_STR		"MQTT"
+#define M5_PROTO_NAME_LEN	6u
+#define M5_PROTO_VERSION5	0x05
+
 static int m5_rlen_wsize(uint32_t val, uint32_t *wsize)
 {
 	if (val > 268435455) {
