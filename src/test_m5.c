@@ -40,6 +40,7 @@
 
 #include "m5.c"
 
+#include <string.h>
 #include <stdio.h>
 
 #define TEST_HDR(msg)	printf("------------------------\n%s\n", (msg))
@@ -126,9 +127,27 @@ static void test_int_encoding(void)
 	printf("%s\n", RC_TO_STR(rc));
 }
 
+static void test_m5_add_u16(void)
+{
+	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
+			       .size = sizeof(data)};
+
+	TEST_HDR(__func__);
+
+	m5_add_u16(&buf, 0xABCD);
+	if (buf.data[0] != 0xAB || buf.data[1] != 0xCD) {
+		exit(1);
+	}
+
+	if (buf.len != 2) {
+		exit(1);
+	}
+}
+
 int main(void)
 {
 	test_int_encoding();
+	test_m5_add_u16();
 
 	return 0;
 }
