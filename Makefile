@@ -1,4 +1,4 @@
-CFLAGS = -Wall -Wextra -Werror -Wno-missing-field-initializers -Wno-missing-braces -O0 -g
+CFLAGS = -Wall -Wextra -Werror -Wno-missing-field-initializers -Wno-missing-braces -O0 -g -DM5_USER_PROP_SIZE=2
 
 TARGET = bin/test_m5
 

@@ -132,6 +132,70 @@ enum m5_reason_code {
 	M5_RC_WILDCARD_SUBSCRIPTION_NOT_SUPPORTED
 };
 
+struct m5_user_prop {
+	uint8_t *key;
+	uint8_t *value;
+
+	uint16_t key_len;
+	uint16_t value_len;
+};
+
+struct m5_prop {
+#ifndef M5_USER_PROP_SIZE
+	#define M5_USER_PROP_SIZE 0
+	struct m5_user_prop *_user_prop;
+#else
+	struct m5_user_prop _user_prop[M5_USER_PROP_SIZE];
+#endif
+	uint8_t *_auth_method;
+	uint8_t *_auth_data;
+	uint8_t *_content_type;
+	uint8_t *_correlation_data;
+	uint8_t *_response_info;
+	uint8_t *_server_reference;
+	uint8_t *_reason_str;
+	uint8_t *_assigned_client_id;
+	uint8_t *_response_topic;
+
+	uint32_t flags;
+
+	uint32_t _max_packet_size;
+	uint32_t _publication_expiry_interval;
+	uint32_t _session_expiry_interval;
+	uint32_t _subscription_id;
+	uint32_t _will_delay_interval;
+
+	uint32_t _user_prop_wsize;
+
+	uint16_t _receive_max;
+	uint16_t _server_keep_alive;
+	uint16_t _topic_alias;
+	uint16_t _topic_alias_max;
+
+	uint8_t _auth_method_len;
+	uint8_t _auth_data_len;
+	uint8_t _content_type_len;
+	uint8_t _correlation_data_len;
+	uint8_t _response_info_len;
+	uint8_t _server_reference_len;
+	uint8_t _reason_str_len;
+	uint8_t _assigned_client_id_len;
+	uint8_t _response_topic_len;
+
+	uint8_t _payload_format_indicator;
+	uint8_t _max_qos;
+	uint8_t _retain_available;
+	uint8_t _wildcard_subscription_available;
+	uint8_t _subscription_id_available;
+	uint8_t _shared_subscription_available;
+
+	/* Number of elements in the User Properties array */
+	uint8_t _user_len;
+
+	uint8_t _request_response_info;
+	uint8_t _request_problem_info;
+};
+
 struct m5_connect {
 	uint8_t *client_id;
 	uint8_t *will_topic;
