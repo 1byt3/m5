@@ -216,6 +216,66 @@ struct m5_connect {
 	uint8_t clean_start;
 };
 
+void m5_prop_payload_format_indicator(struct m5_prop *prop, uint8_t v);
+
+void m5_prop_publication_expiry_interval(struct m5_prop *prop, uint32_t v);
+
+void m5_prop_content_type(struct m5_prop *prop,
+			  uint8_t *data, uint16_t data_len);
+
+void m5_prop_response_topic(struct m5_prop *prop,
+			    uint8_t *data, uint16_t data_len);
+
+void m5_prop_correlation_data(struct m5_prop *prop,
+			      uint8_t *data, uint16_t data_len);
+
+void m5_prop_subscription_id(struct m5_prop *prop, uint32_t v);
+
+void m5_prop_session_expiry_interval(struct m5_prop *prop, uint32_t v);
+
+void m5_prop_assigned_client_id(struct m5_prop *prop,
+				uint8_t *data, uint16_t data_len);
+
+void m5_prop_server_keep_alive(struct m5_prop *prop, uint16_t v);
+
+void m5_prop_auth_method(struct m5_prop *prop, uint8_t *d, uint16_t d_len);
+
+void m5_prop_auth_data(struct m5_prop *prop, uint8_t *d, uint16_t d_len);
+
+void m5_prop_request_problem_info(struct m5_prop *prop, uint8_t v);
+
+void m5_prop_will_delay_interval(struct m5_prop *prop, uint32_t v);
+
+void m5_prop_request_response_info(struct m5_prop *prop, uint8_t v);
+
+void m5_prop_response_info(struct m5_prop *prop, uint8_t *d, uint16_t d_len);
+
+void m5_prop_server_reference(struct m5_prop *prop, uint8_t *d, uint16_t d_len);
+
+void m5_prop_reason_str(struct m5_prop *prop, uint8_t *d, uint16_t d_len);
+
+void m5_prop_receive_max(struct m5_prop *prop, uint16_t v);
+
+void m5_prop_topic_alias_max(struct m5_prop *prop, uint16_t v);
+
+void m5_prop_topic_alias(struct m5_prop *prop, uint16_t v);
+
+void m5_prop_max_qos(struct m5_prop *prop, uint8_t v);
+
+void m5_prop_retain_available(struct m5_prop *prop, uint8_t v);
+
+int m5_prop_add_user_prop(struct m5_prop *prop,
+			  uint8_t *key, uint16_t key_len,
+			  uint8_t *value, uint16_t value_len);
+
+void m5_prop_max_packet_size(struct m5_prop *prop, uint32_t v);
+
+void m5_prop_wildcard_subscription_available(struct m5_prop *prop, uint8_t v);
+
+void m5_prop_subscription_id_available(struct m5_prop *prop, uint8_t v);
+
+void m5_prop_shared_subscription_available(struct m5_prop *prop, uint8_t v);
+
 int m5_pack_connect(struct app_buf *buf, struct m5_connect *msg);
 
 #endif

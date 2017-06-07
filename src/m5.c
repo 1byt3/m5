@@ -60,6 +60,8 @@
 
 #define M5_PACKET_TYPE_WSIZE	1
 
+#define M5_2POW(n) (uint32_t)(((uint32_t)1) << n)
+
 enum m5_prop_val {
 	/* empty */
 	PAYLOAD_FORMAT_INDICATOR = 0x01,
@@ -305,6 +307,199 @@ static void m5_str_add(struct app_buf *buf, const char *str)
 static uint16_t m5_u16(uint8_t *data)
 {
 	return (data[0] << 8) + data[1];
+}
+
+#define SET_INT(prop_ptr, name, bit, value)	\
+	do {					\
+		prop_ptr->_ ## name = value;	\
+		prop_ptr->flags |= bit;		\
+	} while (0)
+
+#define SET_DATA(prop_ptr, name, bit, buf, buf_len)	\
+	do {						\
+		prop_ptr->_ ## name = buf;		\
+		prop_ptr->_ ## name ## _len = buf_len;	\
+		prop_ptr->flags |= bit;			\
+	} while (0)
+
+void m5_prop_payload_format_indicator(struct m5_prop *prop, uint8_t v)
+{
+	SET_INT(prop, payload_format_indicator,
+		M5_2POW(REMAP_PAYLOAD_FORMAT_INDICATOR), v);
+}
+
+void m5_prop_publication_expiry_interval(struct m5_prop *prop, uint32_t v)
+{
+	SET_INT(prop, publication_expiry_interval,
+		M5_2POW(REMAP_PUBLICATION_EXPIRY_INTERVAL), v);
+}
+
+void m5_prop_content_type(struct m5_prop *prop,
+			  uint8_t *data, uint16_t data_len)
+{
+	SET_DATA(prop, content_type,
+		 M5_2POW(REMAP_CONTENT_TYPE), data, data_len);
+}
+
+void m5_prop_response_topic(struct m5_prop *prop,
+			    uint8_t *data, uint16_t data_len)
+{
+	SET_DATA(prop, response_topic, M5_2POW(REMAP_RESPONSE_TOPIC),
+		 data, data_len);
+}
+
+void m5_prop_correlation_data(struct m5_prop *prop,
+			      uint8_t *data, uint16_t data_len)
+{
+	SET_DATA(prop, correlation_data, M5_2POW(REMAP_CORRELATION_DATA),
+		 data, data_len);
+}
+
+void m5_prop_subscription_id(struct m5_prop *prop, uint32_t v)
+{
+	SET_INT(prop, subscription_id,
+		M5_2POW(REMAP_SUBSCRIPTION_IDENTIFIER), v);
+}
+
+void m5_prop_session_expiry_interval(struct m5_prop *prop, uint32_t v)
+{
+	SET_INT(prop, session_expiry_interval,
+		M5_2POW(REMAP_SESSION_EXPIRY_INTERVAL), v);
+}
+
+void m5_prop_assigned_client_id(struct m5_prop *prop,
+				uint8_t *data, uint16_t data_len)
+{
+	SET_DATA(prop, assigned_client_id,
+		 M5_2POW(REMAP_ASSIGNED_CLIENT_IDENTIFIER), data, data_len);
+}
+
+void m5_prop_server_keep_alive(struct m5_prop *prop, uint16_t v)
+{
+	SET_INT(prop, server_keep_alive,
+		M5_2POW(REMAP_SERVER_KEEP_ALIVE), v);
+}
+
+void m5_prop_auth_method(struct m5_prop *prop, uint8_t *d, uint16_t d_len)
+{
+	SET_DATA(prop, auth_method,
+		 M5_2POW(REMAP_AUTH_METHOD), d, d_len);
+}
+
+void m5_prop_auth_data(struct m5_prop *prop, uint8_t *d, uint16_t d_len)
+{
+	SET_DATA(prop, auth_data, M5_2POW(REMAP_AUTH_DATA), d, d_len);
+}
+
+void m5_prop_request_problem_info(struct m5_prop *prop, uint8_t v)
+{
+	SET_INT(prop, request_problem_info,
+		M5_2POW(REMAP_REQUEST_PROBLEM_INFORMATION),
+		v > 0 ? 0x01 : 0x00);
+}
+
+void m5_prop_will_delay_interval(struct m5_prop *prop, uint32_t v)
+{
+	SET_INT(prop, will_delay_interval,
+		M5_2POW(REMAP_WILL_DELAY_INTERVAL), v);
+}
+
+void m5_prop_request_response_info(struct m5_prop *prop, uint8_t v)
+{
+	SET_INT(prop, request_response_info,
+		M5_2POW(REMAP_REQUEST_RESPONSE_INFORMATION),
+		v > 0 ? 0x01 : 0x00);
+}
+
+void m5_prop_response_info(struct m5_prop *prop, uint8_t *d, uint16_t d_len)
+{
+	SET_DATA(prop, response_info,
+		 M5_2POW(REMAP_RESPONSE_INFORMATION), d, d_len);
+}
+
+void m5_prop_server_reference(struct m5_prop *prop, uint8_t *d, uint16_t d_len)
+{
+	SET_DATA(prop, server_reference,
+		 M5_2POW(REMAP_SERVER_REFERENCE), d, d_len);
+}
+
+void m5_prop_reason_str(struct m5_prop *prop, uint8_t *d, uint16_t d_len)
+{
+	SET_DATA(prop, reason_str, M5_2POW(REMAP_REASON_STR), d, d_len);
+}
+
+void m5_prop_receive_max(struct m5_prop *prop, uint16_t v)
+{
+	SET_INT(prop, receive_max, M5_2POW(REMAP_RECEIVE_MAXIMUM), v);
+}
+
+void m5_prop_topic_alias_max(struct m5_prop *prop, uint16_t v)
+{
+	SET_INT(prop, topic_alias_max,
+		M5_2POW(REMAP_TOPIC_ALIAS_MAXIMUM), v);
+}
+
+void m5_prop_topic_alias(struct m5_prop *prop, uint16_t v)
+{
+	SET_INT(prop, topic_alias, M5_2POW(REMAP_TOPIC_ALIAS), v);
+}
+
+void m5_prop_max_qos(struct m5_prop *prop, uint8_t v)
+{
+	SET_INT(prop, max_qos, M5_2POW(REMAP_MAXIMUM_QOS), v);
+}
+
+void m5_prop_retain_available(struct m5_prop *prop, uint8_t v)
+{
+	SET_INT(prop, retain_available, M5_2POW(REMAP_RETAIN_AVAILABLE), v);
+}
+
+int m5_prop_add_user_prop(struct m5_prop *prop,
+			  uint8_t *key, uint16_t key_len,
+			  uint8_t *value, uint16_t value_len)
+{
+	struct m5_user_prop *user;
+
+	if (prop == NULL || prop->_user_len + 1 > M5_USER_PROP_SIZE) {
+		return -EINVAL;
+	}
+
+	prop->flags |=  M5_2POW(REMAP_USER_PROPERTY);
+
+	user = &prop->_user_prop[prop->_user_len];
+	user->key = key;
+	user->key_len = key_len;
+	user->value = value;
+	user->value_len = value_len;
+
+	prop->_user_len += 1;
+	prop->_user_prop_wsize += 2 * M5_STR_LEN_SIZE + key_len + value_len;
+
+	return EXIT_SUCCESS;
+}
+
+void m5_prop_max_packet_size(struct m5_prop *prop, uint32_t v)
+{
+	SET_INT(prop, max_packet_size,
+		M5_2POW(REMAP_MAXIMUM_PACKET_SIZE), v);
+}
+
+void m5_prop_wildcard_subscription_available(struct m5_prop *prop, uint8_t v)
+{
+	SET_INT(prop, wildcard_subscription_available,
+		M5_2POW(REMAP_WILDCARD_SUBSCRIPTION_AVAILABLE), v);
+}
+
+void m5_prop_subscription_id_available(struct m5_prop *prop, uint8_t v)
+{
+	SET_INT(prop, subscription_id_available,
+		M5_2POW(REMAP_SUBSCRIPTION_IDENTIFIER_AVAILABLE), v);
+}
+
+void m5_prop_shared_subscription_available(struct m5_prop *prop, uint8_t v)
+{
+	SET_INT(prop, shared_subscription_available,
+		M5_2POW(REMAP_SHARED_SUBSCRIPTION_AVAILABLE), v);
 }
 
 static int m5_connect_payload_wsize(struct m5_connect *msg,
