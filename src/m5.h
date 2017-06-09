@@ -276,6 +276,7 @@ void m5_prop_subscription_id_available(struct m5_prop *prop, uint8_t v);
 
 void m5_prop_shared_subscription_available(struct m5_prop *prop, uint8_t v);
 
-int m5_pack_connect(struct app_buf *buf, struct m5_connect *msg);
+int m5_pack_connect(struct app_buf *buf, struct m5_connect *msg,
+		    struct m5_prop *prop);
 
 #endif

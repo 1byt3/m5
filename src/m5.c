@@ -60,6 +60,12 @@
 
 #define M5_PACKET_TYPE_WSIZE	1
 
+#define PROP_ID_BYTE_WSIZE	1
+
+#ifndef ARG_UNUSED
+#define ARG_UNUSED(arg)	((void)arg)
+#endif
+
 #define M5_2POW(n) (uint32_t)(((uint32_t)1) << n)
 
 enum m5_prop_val {
@@ -198,6 +204,18 @@ static const uint8_t prop_2_remap[] = {
 	REMAP_SHARED_SUBSCRIPTION_AVAILABLE
 };
 
+typedef void(*fcn_prop_u8)(struct m5_prop *, uint8_t);
+typedef void(*fcn_prop_u16)(struct m5_prop *, uint16_t);
+typedef void(*fcn_prop_u32)(struct m5_prop *, uint32_t);
+typedef void(*fcn_prop_binary)(struct m5_prop *, uint8_t *, uint16_t);
+
+struct m5_prop_conf {
+	int (*wire_size)(struct m5_prop *, enum m5_prop_remap, uint32_t *);
+	void (*prop2buf)(struct app_buf *, struct m5_prop *);
+	int (*buf2prop)(struct app_buf *, struct m5_prop *);
+	uint32_t valid_msgs;
+};
+
 static int m5_rlen_wsize(uint32_t val, uint32_t *wsize)
 {
 	if (val > 268435455) {
@@ -285,6 +303,18 @@ static void m5_add_u16(struct app_buf *buf, uint16_t val)
 	buf->len += 2;
 }
 
+static void m5_add_u32(struct app_buf *buf, uint32_t val)
+{
+	uint32_t net_order = htobe32(val);
+	uint8_t *p = (uint8_t *)&net_order;
+
+	buf->data[buf->len + 0] = p[0];
+	buf->data[buf->len + 1] = p[1];
+	buf->data[buf->len + 2] = p[2];
+	buf->data[buf->len + 3] = p[3];
+	buf->len += 4;
+}
+
 static void m5_add_raw_binary(struct app_buf *buf,
 			      uint8_t *src, uint16_t src_len)
 {
@@ -307,6 +337,29 @@ static void m5_str_add(struct app_buf *buf, const char *str)
 static uint16_t m5_u16(uint8_t *data)
 {
 	return (data[0] << 8) + data[1];
+}
+
+/* Recovers a 4 byte integer in data. Integers are stored in Network order */
+static uint32_t m5_u32(uint8_t *data)
+{
+	return (data[0] << 24) + (data[1] << 16) + (data[2] << 8) + data[3];
+}
+
+static int m5_unpack_binary(struct app_buf *buf, uint8_t **data, uint16_t *len)
+{
+	if (APPBUF_FREE_READ_SPACE(buf) < M5_BINARY_LEN_SIZE) {
+		return -ENOMEM;
+	}
+
+	*len = m5_u16(buf->data + buf->offset);
+	if (APPBUF_FREE_READ_SPACE(buf) < M5_BINARY_LEN_SIZE + *len) {
+		return -ENOMEM;
+	}
+
+	*data = buf->data + buf->offset + M5_BINARY_LEN_SIZE;
+	buf->offset += M5_BINARY_LEN_SIZE + *len;
+
+	return EXIT_SUCCESS;
 }
 
 #define SET_INT(prop_ptr, name, bit, value)	\
@@ -502,6 +555,791 @@ void m5_prop_shared_subscription_available(struct m5_prop *prop, uint8_t v)
 		M5_2POW(REMAP_SHARED_SUBSCRIPTION_AVAILABLE), v);
 }
 
+static int m5_len_prop_u8(struct m5_prop *prop, enum m5_prop_remap prop_id,
+			  uint32_t *wsize)
+{
+	ARG_UNUSED(prop);
+	ARG_UNUSED(prop_id);
+
+	*wsize = PROP_ID_BYTE_WSIZE + 1;
+
+	return EXIT_SUCCESS;
+}
+
+static int m5_len_prop_u16(struct m5_prop *prop, enum m5_prop_remap prop_id,
+			   uint32_t *wsize)
+{
+	ARG_UNUSED(prop);
+	ARG_UNUSED(prop_id);
+
+	*wsize = PROP_ID_BYTE_WSIZE + 2;
+
+	return EXIT_SUCCESS;
+}
+
+static int m5_len_prop_u32(struct m5_prop *prop, enum m5_prop_remap prop_id,
+			   uint32_t *wsize)
+{
+	ARG_UNUSED(prop);
+	ARG_UNUSED(prop_id);
+
+	*wsize = PROP_ID_BYTE_WSIZE + 4;
+
+	return EXIT_SUCCESS;
+}
+
+static int m5_len_prop_binary(struct m5_prop *prop, enum m5_prop_remap prop_id,
+			      uint32_t *wsize)
+{
+	*wsize = PROP_ID_BYTE_WSIZE + M5_BINARY_LEN_SIZE;
+
+	switch (prop_id) {
+	case REMAP_CONTENT_TYPE:
+		*wsize += prop->_content_type_len;
+		break;
+	case REMAP_RESPONSE_TOPIC:
+		*wsize += prop->_response_topic_len;
+		break;
+	case REMAP_CORRELATION_DATA:
+		*wsize += prop->_correlation_data_len;
+		break;
+	case REMAP_ASSIGNED_CLIENT_IDENTIFIER:
+		*wsize += prop->_assigned_client_id_len;
+		break;
+	case REMAP_AUTH_METHOD:
+		*wsize += prop->_auth_method_len;
+		break;
+	case REMAP_AUTH_DATA:
+		*wsize += prop->_auth_data_len;
+		break;
+	case REMAP_RESPONSE_INFORMATION:
+		*wsize += prop->_response_info_len;
+		break;
+	case REMAP_SERVER_REFERENCE:
+		*wsize += prop->_server_reference_len;
+		break;
+	case REMAP_REASON_STR:
+		*wsize += prop->_reason_str_len;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return EXIT_SUCCESS;
+}
+
+static int m5_len_prop_varlen(struct m5_prop *prop, enum m5_prop_remap prop_id,
+			      uint32_t *wsize)
+{
+	int rc;
+
+	if (prop_id != REMAP_SUBSCRIPTION_IDENTIFIER) {
+		return -EINVAL;
+	}
+
+	rc = m5_rlen_wsize(prop->_subscription_id, wsize);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	*wsize += PROP_ID_BYTE_WSIZE;
+
+	return EXIT_SUCCESS;
+}
+
+static int m5_len_prop_user(struct m5_prop *prop, enum m5_prop_remap prop_id,
+			    uint32_t *wsize)
+{
+	ARG_UNUSED(prop_id);
+
+	*wsize = PROP_ID_BYTE_WSIZE * prop->_user_len + prop->_user_prop_wsize;
+
+	return EXIT_SUCCESS;
+}
+
+static int buf2prop_u8(struct app_buf *buf, struct m5_prop *prop,
+		       fcn_prop_u8 fcn_set_prop_value)
+{
+	if (APPBUF_FREE_READ_SPACE(buf) < 1) {
+		return -ENOMEM;
+	}
+
+	fcn_set_prop_value(prop, buf->data[buf->offset]);
+	buf->offset += 1;
+
+	return EXIT_SUCCESS;
+}
+
+static int buf2prop_u16(struct app_buf *buf, struct m5_prop *prop,
+			fcn_prop_u16 fcn_set_prop_value)
+{
+	if (APPBUF_FREE_READ_SPACE(buf) < 2) {
+		return -ENOMEM;
+	}
+
+	fcn_set_prop_value(prop, m5_u16(buf->data + buf->offset));
+	buf->offset += 2;
+
+	return EXIT_SUCCESS;
+}
+
+static int buf2prop_u32(struct app_buf *buf, struct m5_prop *prop,
+			fcn_prop_u32 fcn_set_prop_value)
+{
+	if (APPBUF_FREE_READ_SPACE(buf) < 4) {
+		return -ENOMEM;
+	}
+
+	fcn_set_prop_value(prop, m5_u32(buf->data + buf->offset));
+	buf->offset += 4;
+
+	return EXIT_SUCCESS;
+}
+
+static int buf2prop_payload_format_indicator(struct app_buf *buf,
+					     struct m5_prop *prop)
+{
+	return buf2prop_u8(buf, prop, m5_prop_payload_format_indicator);
+}
+
+static int buf2prop_request_problem_info(struct app_buf *buf,
+					 struct m5_prop *prop)
+{
+	return buf2prop_u8(buf, prop, m5_prop_request_problem_info);
+}
+
+static int buf2prop_request_response_info(struct app_buf *buf,
+					  struct m5_prop *prop)
+{
+	return buf2prop_u8(buf, prop, m5_prop_request_response_info);
+}
+
+static int buf2prop_max_qos(struct app_buf *buf, struct m5_prop *prop)
+{
+	return buf2prop_u8(buf, prop, m5_prop_max_qos);
+}
+
+static int buf2prop_retain_available(struct app_buf *buf, struct m5_prop *prop)
+{
+	return buf2prop_u8(buf, prop, m5_prop_retain_available);
+}
+
+static int buf2prop_wildcard_subscription_available(struct app_buf *buf,
+				       struct m5_prop *prop)
+{
+	return buf2prop_u8(buf, prop, m5_prop_wildcard_subscription_available);
+}
+
+static int buf2prop_subscription_id_available(struct app_buf *buf,
+					      struct m5_prop *prop)
+{
+	return buf2prop_u8(buf, prop, m5_prop_subscription_id_available);
+}
+
+static int buf2prop_shared_subscription_available(struct app_buf *buf,
+					  struct m5_prop *prop)
+{
+	return buf2prop_u8(buf, prop, m5_prop_shared_subscription_available);
+}
+
+static int buf2prop_server_keep_alive(struct app_buf *buf, struct m5_prop *prop)
+{
+	return buf2prop_u16(buf, prop, m5_prop_server_keep_alive);
+}
+
+static int buf2prop_receive_max(struct app_buf *buf, struct m5_prop *prop)
+{
+	return buf2prop_u16(buf, prop, m5_prop_receive_max);
+}
+
+static int buf2prop_topic_alias_max(struct app_buf *buf, struct m5_prop *prop)
+{
+	return buf2prop_u16(buf, prop, m5_prop_topic_alias_max);
+}
+
+static int buf2prop_topic_alias(struct app_buf *buf, struct m5_prop *prop)
+{
+	return buf2prop_u16(buf, prop, m5_prop_topic_alias);
+}
+
+static int buf2prop_publication_expiry_interval(struct app_buf *buf,
+						struct m5_prop *prop)
+{
+	return buf2prop_u32(buf, prop, m5_prop_publication_expiry_interval);
+}
+
+static int buf2prop_session_expiry_interval(struct app_buf *buf,
+					    struct m5_prop *prop)
+{
+	return buf2prop_u32(buf, prop, m5_prop_session_expiry_interval);
+}
+
+static int buf2prop_will_delay_interval(struct app_buf *buf,
+					struct m5_prop *prop)
+{
+	return buf2prop_u32(buf, prop, m5_prop_will_delay_interval);
+}
+
+static int buf2prop_max_packet_size(struct app_buf *buf, struct m5_prop *prop)
+{
+	return buf2prop_u32(buf, prop, m5_prop_max_packet_size);
+}
+
+static int buf2prop_binary(struct app_buf *buf, struct m5_prop *prop,
+			   fcn_prop_binary fcn_set_prop_value)
+{
+	uint16_t data_len;
+	uint8_t *data;
+	int rc;
+
+	rc = m5_unpack_binary(buf, &data, &data_len);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	fcn_set_prop_value(prop, data, data_len);
+
+	return EXIT_SUCCESS;
+}
+
+static int buf2prop_content_type(struct app_buf *buf, struct m5_prop *prop)
+{
+	return buf2prop_binary(buf, prop, m5_prop_content_type);
+}
+
+static int buf2prop_response_topic(struct app_buf *buf, struct m5_prop *prop)
+{
+	return buf2prop_binary(buf, prop, m5_prop_response_topic);
+}
+
+static int buf2prop_correlation_data(struct app_buf *buf, struct m5_prop *prop)
+{
+	return buf2prop_binary(buf, prop, m5_prop_correlation_data);
+}
+
+static int buf2prop_assigned_client_id(struct app_buf *buf,
+				       struct m5_prop *prop)
+{
+	return buf2prop_binary(buf, prop, m5_prop_assigned_client_id);
+}
+
+static int buf2prop_auth_method(struct app_buf *buf, struct m5_prop *prop)
+{
+	return buf2prop_binary(buf, prop, m5_prop_auth_method);
+}
+
+static int buf2prop_auth_data(struct app_buf *buf, struct m5_prop *prop)
+{
+	return buf2prop_binary(buf, prop, m5_prop_auth_data);
+}
+
+static int buf2prop_response_info(struct app_buf *buf,
+				  struct m5_prop *prop)
+{
+	return buf2prop_binary(buf, prop, m5_prop_response_info);
+}
+
+static int buf2prop_server_reference(struct app_buf *buf, struct m5_prop *prop)
+{
+	return buf2prop_binary(buf, prop, m5_prop_server_reference);
+}
+
+static int buf2prop_reason_str(struct app_buf *buf, struct m5_prop *prop)
+{
+	return buf2prop_binary(buf, prop, m5_prop_reason_str);
+}
+
+static int buf2prop_subscription_id(struct app_buf *buf, struct m5_prop *prop)
+{
+	uint32_t prop_val;
+	uint32_t prop_len;
+	int rc;
+
+	/* On successful execution of this routine, the variable length
+	 * and property length are set.
+	 */
+	rc = m5_decode_int(buf, &prop_val, &prop_len);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	m5_prop_subscription_id(prop, prop_val);
+
+	return EXIT_SUCCESS;
+}
+
+static int buf2prop_user_prop(struct app_buf *buf, struct m5_prop *prop)
+{
+	uint16_t value_len;
+	uint16_t key_len;
+	uint8_t *value;
+	uint8_t *key;
+	int rc;
+
+	rc = m5_unpack_binary(buf, &key, &key_len);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	rc = m5_unpack_binary(buf, &value, &value_len);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	rc = m5_prop_add_user_prop(prop, key, key_len, value, value_len);
+	return rc;
+}
+
+static void prop2buf_payload_format_indicator(struct app_buf *buf,
+					      struct m5_prop *prop)
+{
+	m5_add_u8(buf, PAYLOAD_FORMAT_INDICATOR);
+	m5_add_u8(buf, prop->_payload_format_indicator);
+}
+
+static void prop2buf_request_problem_info(struct app_buf *buf,
+					  struct m5_prop *prop)
+{
+	m5_add_u8(buf, REQUEST_PROBLEM_INFORMATION);
+	m5_add_u8(buf, prop->_request_problem_info);
+}
+
+static void prop2buf_request_response_info(struct app_buf *buf,
+					   struct m5_prop *prop)
+{
+	m5_add_u8(buf, REQUEST_RESPONSE_INFORMATION);
+	m5_add_u8(buf, prop->_request_response_info);
+}
+
+static void prop2buf_max_qos(struct app_buf *buf, struct m5_prop *prop)
+{
+	m5_add_u8(buf, MAXIMUM_QOS);
+	m5_add_u8(buf, prop->_max_qos);
+}
+
+static void prop2buf_retain_available(struct app_buf *buf, struct m5_prop *prop)
+{
+	m5_add_u8(buf, RETAIN_AVAILABLE);
+	m5_add_u8(buf, prop->_retain_available);
+}
+
+static void prop2buf_wildcard_subscription_available(struct app_buf *buf,
+					  struct m5_prop *prop)
+{
+	m5_add_u8(buf, WILDCARD_SUBSCRIPTION_AVAILABLE);
+	m5_add_u8(buf, prop->_wildcard_subscription_available);
+}
+
+static void prop2buf_subscription_id_available(struct app_buf *buf,
+				       struct m5_prop *prop)
+{
+	m5_add_u8(buf, SUBSCRIPTION_IDENTIFIER_AVAILABLE);
+	m5_add_u8(buf, prop->_subscription_id_available);
+}
+
+static void prop2buf_shared_subscription_available(struct app_buf *buf,
+					   struct m5_prop *prop)
+{
+	m5_add_u8(buf, SHARED_SUBSCRIPTION_AVAILABLE);
+	m5_add_u8(buf, prop->_shared_subscription_available);
+}
+
+static void prop2buf_server_keep_alive(struct app_buf *buf,
+				       struct m5_prop *prop)
+{
+	m5_add_u8(buf, SERVER_KEEP_ALIVE);
+	m5_add_u16(buf, prop->_server_keep_alive);
+}
+
+static void prop2buf_receive_max(struct app_buf *buf, struct m5_prop *prop)
+{
+	m5_add_u8(buf, RECEIVE_MAXIMUM);
+	m5_add_u16(buf, prop->_receive_max);
+}
+
+static void prop2buf_topic_alias_max(struct app_buf *buf, struct m5_prop *prop)
+{
+	m5_add_u8(buf, TOPIC_ALIAS_MAXIMUM);
+	m5_add_u16(buf, prop->_topic_alias_max);
+}
+
+static void prop2buf_topic_alias(struct app_buf *buf, struct m5_prop *prop)
+{
+	m5_add_u8(buf, TOPIC_ALIAS);
+	m5_add_u16(buf, prop->_topic_alias);
+}
+
+static void prop2buf_publication_expiry_interval(struct app_buf *buf,
+						 struct m5_prop *prop)
+{
+	m5_add_u8(buf, PUBLICATION_EXPIRY_INTERVAL);
+	m5_add_u32(buf, prop->_publication_expiry_interval);
+}
+
+static void prop2buf_session_expiry_interval(struct app_buf *buf,
+					     struct m5_prop *prop)
+{
+	m5_add_u8(buf, SESSION_EXPIRY_INTERVAL);
+	m5_add_u32(buf, prop->_session_expiry_interval);
+}
+
+static void prop2buf_will_delay_interval(struct app_buf *buf,
+					 struct m5_prop *prop)
+{
+	m5_add_u8(buf, WILL_DELAY_INTERVAL);
+	m5_add_u32(buf, prop->_will_delay_interval);
+}
+
+static void prop2buf_max_packet_size(struct app_buf *buf, struct m5_prop *prop)
+{
+	m5_add_u8(buf, MAXIMUM_PACKET_SIZE);
+	m5_add_u32(buf, prop->_max_packet_size);
+}
+
+static void prop2buf_content_type(struct app_buf *buf, struct m5_prop *prop)
+{
+	m5_add_u8(buf, CONTENT_TYPE);
+	m5_add_binary(buf, prop->_content_type, prop->_content_type_len);
+}
+
+static void prop2buf_response_topic(struct app_buf *buf, struct m5_prop *prop)
+{
+	m5_add_u8(buf, RESPONSE_TOPIC);
+	m5_add_binary(buf, prop->_response_topic, prop->_response_topic_len);
+}
+
+static void prop2buf_correlation_data(struct app_buf *buf, struct m5_prop *prop)
+{
+	m5_add_u8(buf, CORRELATION_DATA);
+	m5_add_binary(buf, prop->_correlation_data,
+		      prop->_correlation_data_len);
+}
+
+static void prop2buf_assigned_client_id(struct app_buf *buf,
+					struct m5_prop *prop)
+{
+	m5_add_u8(buf, ASSIGNED_CLIENT_IDENTIFIER);
+	m5_add_binary(buf, prop->_assigned_client_id,
+		      prop->_assigned_client_id_len);
+}
+
+static void prop2buf_auth_method(struct app_buf *buf, struct m5_prop *prop)
+{
+	m5_add_u8(buf, AUTH_METHOD);
+	m5_add_binary(buf, prop->_auth_method, prop->_auth_method_len);
+}
+
+static void prop2buf_auth_data(struct app_buf *buf, struct m5_prop *prop)
+{
+	m5_add_u8(buf, AUTH_DATA);
+	m5_add_binary(buf, prop->_auth_data, prop->_auth_data_len);
+}
+
+static void prop2buf_response_info(struct app_buf *buf, struct m5_prop *prop)
+{
+	m5_add_u8(buf, RESPONSE_INFORMATION);
+	m5_add_binary(buf, prop->_response_info, prop->_response_info_len);
+}
+
+static void prop2buf_server_reference(struct app_buf *buf, struct m5_prop *prop)
+{
+	m5_add_u8(buf, SERVER_REFERENCE);
+	m5_add_binary(buf, prop->_server_reference,
+		      prop->_server_reference_len);
+}
+
+static void prop2buf_reason_string(struct app_buf *buf, struct m5_prop *prop)
+{
+	m5_add_u8(buf, REASON_STR);
+	m5_add_binary(buf, prop->_reason_str, prop->_reason_str_len);
+}
+
+static void prop2buf_subscription_id(struct app_buf *buf, struct m5_prop *prop)
+{
+	m5_add_u8(buf, SUBSCRIPTION_IDENTIFIER);
+	m5_encode_int(buf, prop->_subscription_id);
+}
+
+static void prop2buf_user_prop(struct app_buf *buf, struct m5_prop *prop)
+{
+	uint8_t i;
+
+	for (i = 0; i < prop->_user_len; i++) {
+		m5_add_u8(buf, USER_PROPERTY);
+		m5_add_binary(buf, prop->_user_prop[i].key,
+			      prop->_user_prop[i].key_len);
+		m5_add_binary(buf, prop->_user_prop[i].value,
+			      prop->_user_prop[i].value_len);
+	}
+}
+
+static struct m5_prop_conf m5_prop_conf[] = {
+	{ 0 },
+
+
+	/* PAYLOAD_FORMAT_INDICATOR */
+	{.valid_msgs = M5_2POW(M5_PKT_PUBLISH),
+	 .wire_size = m5_len_prop_u8,
+	 .buf2prop = buf2prop_payload_format_indicator,
+	 .prop2buf = prop2buf_payload_format_indicator},
+	/* REQUEST_PROBLEM_INFORMATION */
+	{.valid_msgs = M5_2POW(M5_PKT_CONNECT),
+	 .wire_size = m5_len_prop_u8,
+	 .buf2prop = buf2prop_request_problem_info,
+	 .prop2buf = prop2buf_request_problem_info},
+	/* REQUEST_RESPONSE_INFORMATION */
+	{.valid_msgs = M5_2POW(M5_PKT_CONNECT),
+	 .wire_size = m5_len_prop_u8,
+	 .buf2prop = buf2prop_request_response_info,
+	 .prop2buf = prop2buf_request_response_info},
+	/* MAXIMUM_QOS */
+	{.valid_msgs = M5_2POW(M5_PKT_CONNACK),
+	 .wire_size = m5_len_prop_u8,
+	 .buf2prop = buf2prop_max_qos,
+	 .prop2buf = prop2buf_max_qos},
+	/* RETAIN_AVAILABLE */
+	{.valid_msgs = M5_2POW(M5_PKT_CONNACK),
+	 .wire_size = m5_len_prop_u8,
+	 .buf2prop = buf2prop_retain_available,
+	 .prop2buf = prop2buf_retain_available},
+	/* WILDCARD_SUBSCRIPTION_AVAILABLE */
+	{.valid_msgs = M5_2POW(M5_PKT_CONNACK),
+	 .wire_size = m5_len_prop_u8,
+	 .buf2prop = buf2prop_wildcard_subscription_available,
+	 .prop2buf = prop2buf_wildcard_subscription_available},
+	/* SUBSCRIPTION_IDENTIFIER_AVAILABLE */
+	{.valid_msgs = M5_2POW(M5_PKT_CONNACK),
+	 .wire_size = m5_len_prop_u8,
+	 .buf2prop = buf2prop_subscription_id_available,
+	 .prop2buf = prop2buf_subscription_id_available},
+	/* SHARED_SUBSCRIPTION_AVAILABLE */
+	{.valid_msgs = M5_2POW(M5_PKT_CONNACK),
+	 .wire_size = m5_len_prop_u8,
+	 .buf2prop = buf2prop_shared_subscription_available,
+	 .prop2buf = prop2buf_shared_subscription_available},
+
+
+	/* SERVER_KEEP_ALIVE */
+	{.valid_msgs = M5_2POW(M5_PKT_CONNACK),
+	 .wire_size = m5_len_prop_u16,
+	 .buf2prop = buf2prop_server_keep_alive,
+	 .prop2buf = prop2buf_server_keep_alive},
+	/* RECEIVE_MAXIMUM */
+	{.valid_msgs = M5_2POW(M5_PKT_CONNECT) |
+		 M5_2POW(M5_PKT_CONNACK),
+	 .wire_size = m5_len_prop_u16,
+	 .buf2prop = buf2prop_receive_max,
+	 .prop2buf = prop2buf_receive_max},
+	/* TOPIC_ALIAS_MAXIMUM */
+	{.valid_msgs = M5_2POW(M5_PKT_CONNECT) |
+		 M5_2POW(M5_PKT_CONNACK),
+	 .wire_size = m5_len_prop_u16,
+	 .buf2prop = buf2prop_topic_alias_max,
+	 .prop2buf = prop2buf_topic_alias_max},
+	/* TOPIC_ALIAS */
+	{.valid_msgs = M5_2POW(M5_PKT_PUBLISH),
+	 .wire_size = m5_len_prop_u16,
+	 .buf2prop = buf2prop_topic_alias,
+	 .prop2buf = prop2buf_topic_alias},
+
+
+	/* PUBLICATION_EXPIRY_INTERVAL */
+	{.valid_msgs = M5_2POW(M5_PKT_PUBLISH),
+	 .wire_size = m5_len_prop_u32,
+	 .buf2prop = buf2prop_publication_expiry_interval,
+	 .prop2buf = prop2buf_publication_expiry_interval},
+	/* SESSION_EXPIRY_INTERVAL */
+	{.valid_msgs = M5_2POW(M5_PKT_CONNECT) |
+		 M5_2POW(M5_PKT_DISCONNECT),
+	 .wire_size = m5_len_prop_u32,
+	 .buf2prop = buf2prop_session_expiry_interval,
+	 .prop2buf = prop2buf_session_expiry_interval},
+	/* WILL_DELAY_INTERVAL */
+	{.valid_msgs = M5_2POW(M5_PKT_CONNECT),
+	 .wire_size = m5_len_prop_u32,
+	 .buf2prop = buf2prop_will_delay_interval,
+	 .prop2buf = prop2buf_will_delay_interval},
+	/* MAXIMUM_PACKET_SIZE */
+	{.valid_msgs = M5_2POW(M5_PKT_CONNECT) |
+		 M5_2POW(M5_PKT_CONNACK),
+	 .wire_size = m5_len_prop_u32,
+	 .buf2prop = buf2prop_max_packet_size,
+	 .prop2buf = prop2buf_max_packet_size},
+
+
+	/* CONTENT_TYPE */
+	{.valid_msgs = M5_2POW(M5_PKT_PUBLISH),
+	 .wire_size = m5_len_prop_binary,
+	 .buf2prop = buf2prop_content_type,
+	 .prop2buf = prop2buf_content_type},
+	/* RESPONSE_TOPIC */
+	{.valid_msgs = M5_2POW(M5_PKT_PUBLISH),
+	 .wire_size = m5_len_prop_binary,
+	 .buf2prop = buf2prop_response_topic,
+	 .prop2buf = prop2buf_response_topic},
+	/* CORRELATION_DATA */
+	{.valid_msgs = M5_2POW(M5_PKT_PUBLISH),
+	 .wire_size = m5_len_prop_binary,
+	 .buf2prop = buf2prop_correlation_data,
+	 .prop2buf = prop2buf_correlation_data},
+	/* ASSIGNED_CLIENT_IDENTIFIER */
+	{.valid_msgs = M5_2POW(M5_PKT_CONNACK),
+	 .wire_size = m5_len_prop_binary,
+	 .buf2prop = buf2prop_assigned_client_id,
+	 .prop2buf = prop2buf_assigned_client_id},
+	/* AUTH_METHOD */
+	{.valid_msgs = M5_2POW(M5_PKT_CONNECT) |
+		 M5_2POW(M5_PKT_CONNACK) |
+		 M5_2POW(M5_PKT_AUTH),
+	 .wire_size = m5_len_prop_binary,
+	 .buf2prop = buf2prop_auth_method,
+	 .prop2buf = prop2buf_auth_method},
+	/* AUTH_DATA */
+	{.valid_msgs = M5_2POW(M5_PKT_CONNECT) |
+		 M5_2POW(M5_PKT_CONNACK) |
+		 M5_2POW(M5_PKT_AUTH),
+	 .wire_size = m5_len_prop_binary,
+	 .buf2prop = buf2prop_auth_data,
+	 .prop2buf = prop2buf_auth_data},
+	/* RESPONSE_INFORMATION */
+	{.valid_msgs = M5_2POW(M5_PKT_CONNACK),
+	 .wire_size = m5_len_prop_binary,
+	 .buf2prop = buf2prop_response_info,
+	 .prop2buf = prop2buf_response_info},
+	/* SERVER_REFERENCE */
+	{.valid_msgs = M5_2POW(M5_PKT_CONNACK) |
+		 M5_2POW(M5_PKT_DISCONNECT),
+	 .wire_size = m5_len_prop_binary,
+	 .buf2prop = buf2prop_server_reference,
+	 .prop2buf = prop2buf_server_reference},
+	/* REASON_STR */
+	{.valid_msgs = M5_2POW(M5_PKT_CONNACK) |
+		 M5_2POW(M5_PKT_PUBACK) |
+		 M5_2POW(M5_PKT_PUBREC) |
+		 M5_2POW(M5_PKT_PUBREL) |
+		 M5_2POW(M5_PKT_PUBCOMP) |
+		 M5_2POW(M5_PKT_SUBACK) |
+		 M5_2POW(M5_PKT_UNSUBACK) |
+		 M5_2POW(M5_PKT_DISCONNECT) |
+		 M5_2POW(M5_PKT_AUTH),
+	 .wire_size = m5_len_prop_binary,
+	 .buf2prop = buf2prop_reason_str,
+	 .prop2buf = prop2buf_reason_string},
+
+
+	/* SUBSCRIPTION_IDENTIFIER */
+	{.valid_msgs = M5_2POW(M5_PKT_PUBLISH) |
+		 M5_2POW(M5_PKT_SUBSCRIBE),
+	 .wire_size = m5_len_prop_varlen,
+	 .buf2prop = buf2prop_subscription_id,
+	 .prop2buf = prop2buf_subscription_id},
+
+
+	/* USER_PROPERTY */
+	{.valid_msgs = M5_2POW(M5_PKT_CONNECT) |
+		 M5_2POW(M5_PKT_CONNACK) |
+		 M5_2POW(M5_PKT_PUBLISH) |
+		 M5_2POW(M5_PKT_PUBACK) |
+		 M5_2POW(M5_PKT_PUBREC) |
+		 M5_2POW(M5_PKT_PUBREL) |
+		 M5_2POW(M5_PKT_PUBCOMP) |
+		 M5_2POW(M5_PKT_SUBACK) |
+		 M5_2POW(M5_PKT_UNSUBACK) |
+		 M5_2POW(M5_PKT_DISCONNECT) |
+		 M5_2POW(M5_PKT_AUTH),
+	 .wire_size = m5_len_prop_user,
+	 .buf2prop = buf2prop_user_prop,
+	 .prop2buf = prop2buf_user_prop}
+	};
+
+static int m5_prop_pkt_validate(enum m5_prop_remap prop_id,
+				enum m5_pkt_type pkt_type)
+{
+	int found;
+
+	if (prop_id <= 0 || prop_id >= M5_REMAP_PROP_LEN) {
+		return -EINVAL;
+	}
+
+	found = (m5_prop_conf[prop_id].valid_msgs & M5_2POW(pkt_type));
+	if (found == 0) {
+		return -EINVAL;
+	}
+
+	return EXIT_SUCCESS;
+}
+
+static int m5_prop_wsize(enum m5_pkt_type msg_type, struct m5_prop *prop,
+			 uint32_t *wire_size)
+{
+	int (*fcn_wsize)(struct m5_prop *, enum m5_prop_remap, uint32_t *);
+	uint32_t flags;
+	int rc;
+
+	*wire_size = 0;
+	if (prop == NULL) {
+		return EXIT_SUCCESS;
+	}
+
+	flags = prop->flags;
+	while (flags > 0) {
+		uint32_t remainder = flags & (flags - 1);
+		uint32_t remap_prop_id = __builtin_ffs(flags ^ remainder) - 1;
+		uint32_t prop_wsize;
+
+		rc = m5_prop_pkt_validate(remap_prop_id, msg_type);
+		if (rc != EXIT_SUCCESS) {
+			return rc;
+		}
+
+		fcn_wsize = m5_prop_conf[remap_prop_id].wire_size;
+		rc = fcn_wsize(prop, remap_prop_id, &prop_wsize);
+		if (rc != EXIT_SUCCESS) {
+			return rc;
+		}
+
+		*wire_size += prop_wsize;
+
+		flags = remainder;
+	}
+
+	return EXIT_SUCCESS;
+}
+
+static int m5_pack_prop(struct app_buf *buf, struct m5_prop *prop,
+			uint32_t wire_size)
+{
+	void (*fcn_write)(struct app_buf *, struct m5_prop *);
+	uint32_t flags;
+	int rc;
+
+	rc = m5_encode_int(buf, wire_size);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	if (prop == NULL || wire_size == 0) {
+		return EXIT_SUCCESS;
+	}
+
+	if (APPBUF_FREE_WRITE_SPACE(buf) < wire_size) {
+		return -ENOMEM;
+	}
+
+	flags = prop->flags;
+	while (flags > 0) {
+		uint32_t remainder = flags & (flags - 1);
+		uint32_t remap_prop_id = __builtin_ffs(flags ^ remainder) - 1;
+
+		fcn_write = m5_prop_conf[remap_prop_id].prop2buf;
+		fcn_write(buf, prop);
+
+		flags = remainder;
+	}
+
+	return EXIT_SUCCESS;
+}
+
 static int m5_connect_payload_wsize(struct m5_connect *msg,
 				    uint32_t *wire_size)
 {
@@ -560,8 +1398,10 @@ static int m5_pack_connect_payload(struct app_buf *buf, struct m5_connect *msg)
 	return EXIT_SUCCESS;
 }
 
-int m5_pack_connect(struct app_buf *buf, struct m5_connect *msg)
+int m5_pack_connect(struct app_buf *buf, struct m5_connect *msg,
+		    struct m5_prop *prop)
 {
+	uint32_t prop_wsize_wsize;
 	uint32_t payload_wsize;
 	uint32_t full_msg_size;
 	uint32_t prop_wsize;
@@ -574,8 +1414,15 @@ int m5_pack_connect(struct app_buf *buf, struct m5_connect *msg)
 		return -EINVAL;
 	}
 
-	/* xxx Assume that there are no properties... */
-	prop_wsize = 0;
+	rc = m5_prop_wsize(M5_PKT_CONNECT, prop, &prop_wsize);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	rc = m5_rlen_wsize(prop_wsize, &prop_wsize_wsize);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
 
 	rc = m5_connect_payload_wsize(msg, &payload_wsize);
 	if (rc != EXIT_SUCCESS) {
@@ -583,7 +1430,7 @@ int m5_pack_connect(struct app_buf *buf, struct m5_connect *msg)
 	}
 
 	rlen = M5_PROTO_NAME_LEN + 1 + 1 + 2 +
-	       1 + prop_wsize + payload_wsize;
+	       prop_wsize_wsize + prop_wsize + payload_wsize;
 
 	rc = m5_rlen_wsize(rlen, &rlen_wsize);
 	if (rc != EXIT_SUCCESS) {
@@ -604,8 +1451,10 @@ int m5_pack_connect(struct app_buf *buf, struct m5_connect *msg)
 	m5_add_u8(buf, flags);
 	m5_add_u16(buf, msg->keep_alive);
 
-	/* xxx Pack properties: 0 length */
-	m5_encode_int(buf, prop_wsize);
+	rc = m5_pack_prop(buf, prop, prop_wsize);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
 
 	rc = m5_pack_connect_payload(buf, msg);
 
