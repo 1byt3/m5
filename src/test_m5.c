@@ -47,6 +47,64 @@
 #define RC_TO_STR(rc)	((rc) == EXIT_SUCCESS ? "OK" : "ERROR")
 #define DBG(msg)	printf("\t%s:%d %s\n", __func__, __LINE__, msg)
 
+
+static const char * const m5_prop_name[] = {
+	NULL,
+	"PAYLOAD_FORMAT_INDICATOR",
+	"REQUEST_PROBLEM_INFORMATION",
+	"REQUEST_RESPONSE_INFORMATION",
+	"MAXIMUM_QOS",
+	"RETAIN_AVAILABLE",
+	"WILDCARD_SUBSCRIPTION_AVAILABLE",
+	"SUBSCRIPTION_IDENTIFIER_AVAILABLE",
+	"SHARED_SUBSCRIPTION_AVAILABLE",
+	"SERVER_KEEP_ALIVE",
+	"RECEIVE_MAXIMUM",
+	"TOPIC_ALIAS_MAXIMUM",
+	"TOPIC_ALIAS",
+	"PUBLICATION_EXPIRY_INTERVAL",
+	"SESSION_EXPIRY_INTERVAL",
+	"WILL_DELAY_INTERVAL",
+	"MAXIMUM_PACKET_SIZE",
+	"CONTENT_TYPE",
+	"RESPONSE_TOPIC",
+	"CORRELATION_DATA",
+	"ASSIGNED_CLIENT_IDENTIFIER",
+	"AUTH_METHOD",
+	"AUTH_DATA",
+	"RESPONSE_INFORMATION",
+	"SERVER_REFERENCE",
+	"REASON_STR",
+	"SUBSCRIPTION_IDENTIFIER",
+	"USER_PROPERTY",
+};
+
+void print_raw(uint8_t *data, size_t len)
+{
+	size_t i;
+
+	for (i = 0; i < len; i++) {
+		printf("%02x\t", data[i]);
+		if (i > 0 && (i + 1) % 8 == 0) {
+			printf("\n");
+		}
+	}
+
+	printf("\n");
+}
+
+void print_buf(struct app_buf *buf)
+{
+	printf("Size: %zu, Len: %zu, Offset: %zu\n",
+	       buf->size, buf->len, buf->offset);
+
+	if (buf == NULL) {
+		return;
+	}
+
+	print_raw(buf->data, buf->len);
+}
+
 static uint8_t data[256];
 
 static int encode_decode(uint32_t val)
@@ -163,11 +221,80 @@ static void test_m5_add_str(void)
 	}
 }
 
+#define DEBUG_PROP_FLAGS(prop, new_prop)			\
+	printf("Prev prop flags: 0x%08x, adding: %s\n",		\
+	       prop.flags, m5_prop_name[(new_prop)])
+
+void test_m5_connect(void)
+{
+	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
+			       .size = sizeof(data)};
+	char *will_msg = "will msg payload";
+	char *client_id = "m5_client";
+	char *will_topic = "sensors";
+	struct m5_connect msg = { 0 };
+	struct m5_prop prop = { 0 };
+	int rc;
+	int i;
+
+	TEST_HDR(__func__);
+
+	memset(data, 0, sizeof(data));
+
+	DEBUG_PROP_FLAGS(prop, REMAP_SESSION_EXPIRY_INTERVAL);
+	m5_prop_session_expiry_interval(&prop, 1);
+	DEBUG_PROP_FLAGS(prop, REMAP_WILL_DELAY_INTERVAL);
+	m5_prop_will_delay_interval(&prop, 1);
+	DEBUG_PROP_FLAGS(prop, REMAP_RECEIVE_MAXIMUM);
+	m5_prop_receive_max(&prop, 5);
+	DEBUG_PROP_FLAGS(prop, REMAP_MAXIMUM_PACKET_SIZE);
+	m5_prop_max_packet_size(&prop, 5);
+	DEBUG_PROP_FLAGS(prop, REMAP_TOPIC_ALIAS_MAXIMUM);
+	m5_prop_topic_alias_max(&prop, 1);
+	DEBUG_PROP_FLAGS(prop, REMAP_REQUEST_RESPONSE_INFORMATION);
+	m5_prop_request_response_info(&prop, 1);
+	DEBUG_PROP_FLAGS(prop, REMAP_REQUEST_PROBLEM_INFORMATION);
+	m5_prop_request_problem_info(&prop, 1);
+	DEBUG_PROP_FLAGS(prop, REMAP_USER_PROPERTY);
+	for (i = 0; i < M5_USER_PROP_SIZE; i++) {
+		rc = m5_prop_add_user_prop(&prop, (uint8_t *)"hello", 5,
+						  (uint8_t *)"world!", 6);
+		if (rc != EXIT_SUCCESS) {
+			DBG("m5_prop_add_user_prop");
+			exit(1);
+		}
+	}
+	DEBUG_PROP_FLAGS(prop, REMAP_AUTH_METHOD);
+	m5_prop_auth_method(&prop, (uint8_t *)"none", 4);
+	DEBUG_PROP_FLAGS(prop, REMAP_AUTH_DATA);
+	m5_prop_auth_data(&prop, (uint8_t *)"xxx", 3);
+
+	msg.client_id = (uint8_t *)client_id;
+	msg.client_id_len = strlen(client_id);
+	msg.keep_alive = 0x0123;
+
+	msg.will_topic = (uint8_t *)will_topic;
+	msg.will_topic_len = strlen(will_topic);
+
+	msg.will_msg = (uint8_t *)will_msg;
+	msg.will_msg_len = strlen(will_msg);
+
+	rc = m5_pack_connect(&buf, &msg, &prop);
+	if (rc != EXIT_SUCCESS) {
+		DBG("m5_pack_connect");
+		exit(1);
+	}
+
+	printf("CONNECT\n");
+	print_buf(&buf);
+}
+
 int main(void)
 {
 	test_int_encoding();
 	test_m5_add_u16();
 	test_m5_add_str();
+	test_m5_connect();
 
 	return 0;
 }
