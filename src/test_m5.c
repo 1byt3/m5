@@ -221,6 +221,183 @@ static void test_m5_add_str(void)
 	}
 }
 
+#define PROP_CMP_STR(p1, p2, name)				\
+	cmp_str(p1->_ ## name, p1->_ ## name ## _len,		\
+		p2->_ ## name, p2->_ ## name ## _len)
+
+#define PROP_CMP_INT(p1, p2, name)				\
+	(p1->_ ## name == p2->_ ## name ? EXIT_SUCCESS : -EINVAL)
+
+int cmp_str(uint8_t *a, uint16_t a_len, uint8_t *b, uint16_t b_len)
+{
+	if (a_len != b_len) {
+		return -EINVAL;
+	}
+
+	if (memcmp(a, b, a_len) != 0) {
+		return -EINVAL;
+	}
+
+	return EXIT_SUCCESS;
+}
+
+int cmp_prop(struct m5_prop *p1, struct m5_prop *p2)
+{
+	int rc;
+
+	rc = PROP_CMP_STR(p1, p2, auth_method);
+	if (rc != EXIT_SUCCESS) {
+		printf("[%s:%d]\n", __FILE__, __LINE__);
+		return rc;
+	}
+
+	rc = PROP_CMP_STR(p1, p2, auth_data);
+	if (rc != EXIT_SUCCESS) {
+		printf("[%s:%d]\n", __FILE__, __LINE__);
+		return rc;
+	}
+
+	rc = PROP_CMP_STR(p1, p2, content_type);
+	if (rc != EXIT_SUCCESS) {
+		printf("[%s:%d]\n", __FILE__, __LINE__);
+		return rc;
+	}
+
+	rc = PROP_CMP_STR(p1, p2, correlation_data);
+	if (rc != EXIT_SUCCESS) {
+		printf("[%s:%d]\n", __FILE__, __LINE__);
+		return rc;
+	}
+
+	rc = PROP_CMP_STR(p1, p2, response_info);
+	if (rc != EXIT_SUCCESS) {
+		printf("[%s:%d]\n", __FILE__, __LINE__);
+		return rc;
+	}
+
+	rc = PROP_CMP_STR(p1, p2, server_reference);
+	if (rc != EXIT_SUCCESS) {
+		printf("[%s:%d]\n", __FILE__, __LINE__);
+		return rc;
+	}
+
+	rc = PROP_CMP_STR(p1, p2, assigned_client_id);
+	if (rc != EXIT_SUCCESS) {
+		printf("[%s:%d]\n", __FILE__, __LINE__);
+		return rc;
+	}
+
+	rc = PROP_CMP_STR(p1, p2, response_topic);
+	if (rc != EXIT_SUCCESS) {
+		printf("[%s:%d]\n", __FILE__, __LINE__);
+		return rc;
+	}
+
+	rc = PROP_CMP_INT(p1, p2, max_packet_size);
+	if (rc != EXIT_SUCCESS) {
+		printf("[%s:%d]\n", __FILE__, __LINE__);
+		return rc;
+	}
+
+	rc = PROP_CMP_INT(p1, p2, publication_expiry_interval);
+	if (rc != EXIT_SUCCESS) {
+		printf("[%s:%d]\n", __FILE__, __LINE__);
+		return rc;
+	}
+
+	rc = PROP_CMP_INT(p1, p2, session_expiry_interval);
+	if (rc != EXIT_SUCCESS) {
+		printf("[%s:%d]\n", __FILE__, __LINE__);
+		return rc;
+	}
+
+	rc = PROP_CMP_INT(p1, p2, subscription_id);
+	if (rc != EXIT_SUCCESS) {
+		printf("[%s:%d]\n", __FILE__, __LINE__);
+		return rc;
+	}
+
+	rc = PROP_CMP_INT(p1, p2, will_delay_interval);
+	if (rc != EXIT_SUCCESS) {
+		printf("[%s:%d]\n", __FILE__, __LINE__);
+		return rc;
+	}
+
+	rc = PROP_CMP_INT(p1, p2, receive_max);
+	if (rc != EXIT_SUCCESS) {
+		printf("[%s:%d]\n", __FILE__, __LINE__);
+		return rc;
+	}
+
+	rc = PROP_CMP_INT(p1, p2, server_keep_alive);
+	if (rc != EXIT_SUCCESS) {
+		printf("[%s:%d]\n", __FILE__, __LINE__);
+		return rc;
+	}
+
+	rc = PROP_CMP_INT(p1, p2, topic_alias);
+	if (rc != EXIT_SUCCESS) {
+		printf("[%s:%d]\n", __FILE__, __LINE__);
+		return rc;
+	}
+
+	rc = PROP_CMP_INT(p1, p2, topic_alias_max);
+	if (rc != EXIT_SUCCESS) {
+		printf("[%s:%d]\n", __FILE__, __LINE__);
+		return rc;
+	}
+
+	rc = PROP_CMP_INT(p1, p2, payload_format_indicator);
+	if (rc != EXIT_SUCCESS) {
+		printf("[%s:%d]\n", __FILE__, __LINE__);
+		return rc;
+	}
+
+	rc = PROP_CMP_INT(p1, p2, max_qos);
+	if (rc != EXIT_SUCCESS) {
+		printf("[%s:%d]\n", __FILE__, __LINE__);
+		return rc;
+	}
+
+	rc = PROP_CMP_INT(p1, p2, retain_available);
+	if (rc != EXIT_SUCCESS) {
+		printf("[%s:%d]\n", __FILE__, __LINE__);
+		return rc;
+	}
+
+	rc = PROP_CMP_INT(p1, p2, wildcard_subscription_available);
+	if (rc != EXIT_SUCCESS) {
+		printf("[%s:%d]\n", __FILE__, __LINE__);
+		return rc;
+	}
+
+	rc = PROP_CMP_INT(p1, p2, subscription_id_available);
+	if (rc != EXIT_SUCCESS) {
+		printf("[%s:%d]\n", __FILE__, __LINE__);
+		return rc;
+	}
+
+	rc = PROP_CMP_INT(p1, p2, shared_subscription_available);
+	if (rc != EXIT_SUCCESS) {
+		printf("[%s:%d]\n", __FILE__, __LINE__);
+		return rc;
+	}
+
+	rc = PROP_CMP_INT(p1, p2, request_response_info);
+	if (rc != EXIT_SUCCESS) {
+		printf("[%s:%d]\n", __FILE__, __LINE__);
+		return rc;
+	}
+
+	rc = PROP_CMP_INT(p1, p2, request_problem_info);
+	if (rc != EXIT_SUCCESS) {
+		printf("[%s:%d]\n", __FILE__, __LINE__);
+		return rc;
+	}
+
+	return EXIT_SUCCESS;
+}
+
 #define DEBUG_PROP_FLAGS(prop, new_prop)			\
 	printf("Prev prop flags: 0x%08x, adding: %s\n",		\
 	       prop.flags, m5_prop_name[(new_prop)])
@@ -232,7 +409,9 @@ void test_m5_connect(void)
 	char *will_msg = "will msg payload";
 	char *client_id = "m5_client";
 	char *will_topic = "sensors";
+	struct m5_connect msg2 = { 0 };
 	struct m5_connect msg = { 0 };
+	struct m5_prop prop2 = { 0 };
 	struct m5_prop prop = { 0 };
 	int rc;
 	int i;
@@ -287,6 +466,35 @@ void test_m5_connect(void)
 
 	printf("CONNECT\n");
 	print_buf(&buf);
+
+	buf.offset = 0;
+	rc = m5_unpack_connect(&buf, &msg2, &prop2);
+	if (rc != EXIT_SUCCESS) {
+		DBG("m5_unpack_connect");
+		exit(1);
+	}
+
+	rc = cmp_prop(&prop, &prop2);
+	if (rc != EXIT_SUCCESS) {
+		DBG("cmp_prop");
+		exit(1);
+	}
+
+	printf("\nCONNECT Payload\n");
+	printf("\tClient Id: %.*s\n", (int)msg2.client_id_len,
+				    (char *)msg2.client_id);
+	printf("\tWill topic: %.*s\n", (int)msg2.will_topic_len,
+				     (char *)msg2.will_topic);
+	printf("\tWill msg: %.*s\n", (int)msg2.will_msg_len,
+				   (char *)msg2.will_msg);
+	printf("\tUser name: %.*s\n", (int)msg2.user_name_len,
+				    (char *)msg2.user_name);
+	printf("\tPassword: %.*s\n", (int)msg2.password_len,
+				   (char *)msg2.password);
+	printf("\tKeep alive: %u\n", msg2.keep_alive);
+	printf("\tWill retain: %s\n", msg2.will_retain == 1 ? "yes" : "no");
+	printf("\tWill QoS: %u\n", msg2.will_qos);
+	printf("\tClean start: %s\n", msg2.clean_start == 1 ? "yes" : "no");
 }
 
 int main(void)
