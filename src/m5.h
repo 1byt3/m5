@@ -216,6 +216,11 @@ struct m5_connect {
 	uint8_t clean_start;
 };
 
+struct m5_connack {
+	uint8_t session_present;
+	uint8_t return_code;
+};
+
 void m5_prop_payload_format_indicator(struct m5_prop *prop, uint8_t v);
 
 void m5_prop_publication_expiry_interval(struct m5_prop *prop, uint32_t v);
