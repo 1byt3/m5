@@ -1682,6 +1682,9 @@ static int m5_unpack_connect_flags(struct app_buf *buf, struct m5_connect *msg,
 	}
 
 	flags = *APPBUF_DATAPTR_CURRENT(buf);
+	if ((flags & 0x01) != 0x00) {
+		return -EINVAL;
+	}
 
 	msg->clean_start = m5_connect_flags_clean_start(flags);
 	msg->will_qos = m5_connect_flags_will_qos(flags);
