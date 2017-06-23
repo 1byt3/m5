@@ -221,6 +221,20 @@ struct m5_connack {
 	uint8_t return_code;
 };
 
+struct m5_publish {
+	uint8_t *payload;
+	uint8_t *topic_name;
+
+	uint32_t payload_len;
+
+	uint16_t topic_name_len;
+	uint16_t packet_id;
+
+	uint8_t dup;
+	uint8_t qos;
+	uint8_t retain;
+};
+
 void m5_prop_payload_format_indicator(struct m5_prop *prop, uint8_t v);
 
 void m5_prop_publication_expiry_interval(struct m5_prop *prop, uint32_t v);
