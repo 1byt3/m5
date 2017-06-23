@@ -497,12 +497,134 @@ void test_m5_connect(void)
 	printf("\tClean start: %s\n", msg2.clean_start == 1 ? "yes" : "no");
 }
 
+#define PROP_PRINT_INT(name)					\
+		printf("\t" #name": (0x%x) %u\n",		\
+		       p->_ ## name, p->_ ## name)
+
+#define PROP_PRINT_STR(name)					\
+		printf("\t" #name": (%u) %.*s\n",		\
+		       p->_ ## name ## _len,			\
+		       p->_ ## name ## _len,			\
+		       p->_ ## name ## _len == 0 ? NULL : p->_ ## name)
+
+#define PROP_PRINT_USER(idx)					\
+		printf("\tuser[%d] (%d) %.*s -> (%d) %.*s\n",	\
+		       idx,					\
+		       p->_user_prop[idx].key_len,		\
+		       p->_user_prop[idx].key_len,		\
+		       p->_user_prop[idx].key,			\
+		       p->_user_prop[idx].value_len,		\
+		       p->_user_prop[idx].value_len,		\
+		       p->_user_prop[idx].value)
+
+static void print_prop(struct m5_prop *p)
+{
+	uint32_t i;
+
+	printf("\nMQTT Properties\n");
+	PROP_PRINT_STR(auth_method);
+	PROP_PRINT_STR(auth_data);
+	PROP_PRINT_STR(content_type);
+	PROP_PRINT_STR(correlation_data);
+	PROP_PRINT_STR(response_info);
+	PROP_PRINT_STR(server_reference);
+	PROP_PRINT_STR(reason_str);
+	PROP_PRINT_STR(assigned_client_id);
+	PROP_PRINT_STR(response_topic);
+
+	PROP_PRINT_INT(max_packet_size);
+	PROP_PRINT_INT(publication_expiry_interval);
+	PROP_PRINT_INT(session_expiry_interval);
+	PROP_PRINT_INT(subscription_id);
+	PROP_PRINT_INT(will_delay_interval);
+	PROP_PRINT_INT(receive_max);
+	PROP_PRINT_INT(server_keep_alive);
+	PROP_PRINT_INT(topic_alias);
+	PROP_PRINT_INT(topic_alias_max);
+
+	PROP_PRINT_INT(payload_format_indicator);
+	PROP_PRINT_INT(max_qos);
+	PROP_PRINT_INT(retain_available);
+	PROP_PRINT_INT(wildcard_subscription_available);
+	PROP_PRINT_INT(subscription_id_available);
+	PROP_PRINT_INT(shared_subscription_available);
+	PROP_PRINT_INT(request_response_info);
+	PROP_PRINT_INT(request_problem_info);
+
+	for (i = 0; i < p->_user_len; i++) {
+		PROP_PRINT_USER(i);
+	}
+}
+
+void test_m5_connack(void)
+{
+	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
+			       .size = sizeof(data)};
+	struct m5_connack msg = { 0 };
+	struct m5_prop prop2 = { 0 };
+	struct m5_prop prop = { 0 };
+	int rc;
+	int i;
+
+	msg.return_code = 0x01;
+	msg.session_present = 0x01;
+
+	m5_prop_receive_max(&prop, 0xABCD);
+	m5_prop_max_qos(&prop, M5_QoS2);
+	m5_prop_retain_available(&prop, 1);
+	m5_prop_max_packet_size(&prop, 0x0102ABCD);
+	m5_prop_assigned_client_id(&prop, (uint8_t *)"assigned", 8);
+	m5_prop_topic_alias_max(&prop, 0xABCD);
+	m5_prop_reason_str(&prop, (uint8_t *)"reason", 6);
+	for (i = 0; i < M5_USER_PROP_SIZE; i++) {
+		rc = m5_prop_add_user_prop(&prop, (uint8_t *)"hello", 5,
+						  (uint8_t *)"world!", 6);
+		if (rc != EXIT_SUCCESS) {
+			DBG("m5_prop_add_user_prop");
+			exit(1);		}
+	}
+	m5_prop_wildcard_subscription_available(&prop, 1);
+	m5_prop_subscription_id_available(&prop, 1);
+	m5_prop_shared_subscription_available(&prop, 1);
+	m5_prop_server_keep_alive(&prop, 0x0123);
+	m5_prop_response_info(&prop, (uint8_t *)"response", 8);
+	m5_prop_server_reference(&prop, (uint8_t *)"reference", 9);
+	m5_prop_auth_method(&prop, (uint8_t *)"auth method", 11);
+	m5_prop_auth_data(&prop, (uint8_t *)"auth_data", 9);
+
+	rc = m5_pack_connack(&buf, &msg, &prop);
+	if (rc != EXIT_SUCCESS) {
+		DBG("m5_pack_connack");
+		exit(1);
+	}
+
+	buf.offset = 0;
+	rc = m5_unpack_connack(&buf, &msg, &prop2);
+	if (rc != EXIT_SUCCESS) {
+		DBG("m5_unpack_connack");
+		exit(1);
+	}
+
+	rc = cmp_prop(&prop, &prop2);
+	if (rc != EXIT_SUCCESS) {
+		DBG("cmp_prop");
+		exit(1);
+	}
+
+	printf("CONNACK\n");
+	printf("CONNACK flags: 0x%02x\n", msg.session_present);
+	printf("CONNACK rc: 0x%02x\n", msg.return_code);
+	print_buf(&buf);
+	print_prop(&prop);
+}
+
 int main(void)
 {
 	test_int_encoding();
 	test_m5_add_u16();
 	test_m5_add_str();
 	test_m5_connect();
+	test_m5_connack();
 
 	return 0;
 }
