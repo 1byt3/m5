@@ -1838,3 +1838,52 @@ int m5_pack_connack(struct app_buf *buf, struct m5_connack *msg,
 
 	return rc;
 }
+
+int m5_unpack_connack(struct app_buf *buf, struct m5_connack *msg,
+		      struct m5_prop *prop)
+{
+	uint32_t rlen_wsize;
+	uint32_t fixed_header;
+	uint32_t already_read;
+	uint32_t rlen;
+	uint8_t first;
+	int rc;
+
+	if (buf == NULL || msg == NULL) {
+		return -EINVAL;
+	}
+
+	already_read = buf->offset;
+
+	rc = m5_unpack_u8(buf, &first);
+	if (rc != EXIT_SUCCESS || first != (M5_PKT_CONNACK << 4)) {
+		return -EINVAL;
+	}
+
+	rc = m5_decode_int(buf, &rlen, &rlen_wsize);
+	if (rc != EXIT_SUCCESS || buf->offset + rlen > buf->len) {
+		return -EINVAL;
+	}
+
+	rc = m5_unpack_u8(buf, &msg->session_present);
+	if (rc != EXIT_SUCCESS || msg->session_present > 0x01) {
+		return -EINVAL;
+	}
+
+	rc = m5_unpack_u8(buf, &msg->return_code);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	rc = m5_unpack_prop(buf, prop, M5_PKT_CONNACK);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	fixed_header = M5_PACKET_TYPE_WSIZE + rlen_wsize;
+	if (buf->offset - already_read != rlen + fixed_header) {
+		return -EINVAL;
+	}
+
+	return EXIT_SUCCESS;
+}
