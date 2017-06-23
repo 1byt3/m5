@@ -287,4 +287,10 @@ int m5_pack_connect(struct app_buf *buf, struct m5_connect *msg,
 int m5_unpack_connect(struct app_buf *buf, struct m5_connect *msg,
 		      struct m5_prop *prop);
 
+int m5_pack_connack(struct app_buf *buf, struct m5_connack *msg,
+		    struct m5_prop *prop);
+
+int m5_unpack_connack(struct app_buf *buf, struct m5_connack *msg,
+		      struct m5_prop *prop);
+
 #endif
