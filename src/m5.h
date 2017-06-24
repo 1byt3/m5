@@ -307,4 +307,7 @@ int m5_pack_connack(struct app_buf *buf, struct m5_connack *msg,
 int m5_unpack_connack(struct app_buf *buf, struct m5_connack *msg,
 		      struct m5_prop *prop);
 
+int m5_pack_publish(struct app_buf *buf, struct m5_publish *msg,
+		    struct m5_prop *prop);
+
 #endif
