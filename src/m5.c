@@ -373,6 +373,18 @@ static int m5_unpack_u8(struct app_buf *buf, uint8_t *val)
 	return EXIT_SUCCESS;
 }
 
+static int m5_unpack_u16(struct app_buf *buf, uint16_t *val)
+{
+	if (APPBUF_FREE_READ_SPACE(buf) < 2) {
+		return -ENOMEM;
+	}
+
+	*val = m5_u16(buf->data + buf->offset);
+	buf->offset += 2;
+
+	return EXIT_SUCCESS;
+}
+
 static int m5_unpack_binary(struct app_buf *buf, uint8_t **data, uint16_t *len)
 {
 	if (APPBUF_FREE_READ_SPACE(buf) < M5_BINARY_LEN_SIZE) {
@@ -1986,4 +1998,81 @@ int m5_pack_publish(struct app_buf *buf, struct m5_publish *msg,
 	rc = m5_pack_raw_binary(buf, msg->payload, msg->payload_len);
 
 	return rc;
+}
+
+
+static int m5_unpack_publish_flags(struct m5_publish *msg, uint8_t flags)
+{
+	msg->retain = flags & 0x1;
+	msg->qos = (flags & (0x03 << 1)) >> 1;
+	msg->dup = (flags & 0x01 << 3) >> 3;
+	if (msg->qos == 0x03) {
+		return -EINVAL;
+	}
+
+	return EXIT_SUCCESS;
+}
+
+int m5_unpack_publish(struct app_buf *buf, struct m5_publish *msg,
+		      struct m5_prop *prop)
+{
+	uint32_t fixed_header;
+	uint32_t already_read;
+	uint32_t rlen_wsize;
+	uint32_t rlen;
+	uint8_t first;
+	int rc;
+
+	if (buf == NULL || msg == NULL) {
+		return -EINVAL;
+	}
+
+	already_read = buf->offset;
+
+	rc = m5_unpack_u8(buf, &first);
+	if (rc != EXIT_SUCCESS || (first & 0xF0) != (M5_PKT_PUBLISH << 4)) {
+		return -EINVAL;
+	}
+
+	rc = m5_unpack_publish_flags(msg, first);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	rc = m5_decode_int(buf, &rlen, &rlen_wsize);
+	if (rc != EXIT_SUCCESS || buf->offset + rlen > buf->len) {
+		return -EINVAL;
+	}
+
+	rc = m5_buffer_set(&msg->topic_name, &msg->topic_name_len, buf);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	if (msg->qos != M5_QoS0) {
+		rc = m5_unpack_u16(buf, &msg->packet_id);
+		if (rc != EXIT_SUCCESS) {
+			return rc;
+		}
+	}
+
+	rc = m5_unpack_prop(buf, prop, M5_PKT_PUBLISH);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	fixed_header = M5_PACKET_TYPE_WSIZE + rlen_wsize;
+	msg->payload_len = rlen - (buf->offset - already_read - fixed_header);
+	if (msg->payload_len > 0) {
+		msg->payload = buf->data + buf->offset;
+		buf->offset += msg->payload_len;
+	} else {
+		msg->payload = NULL;
+	}
+
+	if (buf->offset - already_read != rlen + fixed_header) {
+		return -EINVAL;
+	}
+
+	return EXIT_SUCCESS;
 }
