@@ -2187,3 +2187,76 @@ int m5_pack_pubcomp(struct app_buf *buf, struct m5_pub_response *msg,
 	return m5_pack_pub_msgs(buf, msg, prop, M5_PKT_PUBCOMP);
 }
 
+static int m5_unpack_pub_msgs(struct app_buf *buf, struct m5_pub_response *msg,
+			      struct m5_prop *prop, enum m5_pkt_type pkt_type)
+{
+	uint8_t recovered_pkt_type;
+	uint32_t fixed_header;
+	uint32_t already_read;
+	uint32_t rlen_wsize;
+	uint32_t rlen;
+
+	int rc;
+
+	if (buf == NULL || msg == NULL) {
+		return -EINVAL;
+	}
+
+	already_read = buf->offset;
+
+	rc = m5_unpack_u8(buf, &recovered_pkt_type);
+	if (rc != EXIT_SUCCESS || recovered_pkt_type != (pkt_type << 4)) {
+		return -EINVAL;
+	}
+
+	rc = m5_decode_int(buf, &rlen, &rlen_wsize);
+	if (rc != EXIT_SUCCESS || buf->offset + rlen > buf->len) {
+		return -EINVAL;
+	}
+
+	rc = m5_unpack_u16(buf, &msg->packet_id);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	rc = m5_unpack_u8(buf, &msg->reason_code);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	rc = m5_unpack_prop(buf, prop, pkt_type);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	fixed_header = M5_PACKET_TYPE_WSIZE + rlen_wsize;
+	if (buf->offset - already_read != rlen + fixed_header) {
+		return -EINVAL;
+	}
+
+	return EXIT_SUCCESS;
+}
+
+int m5_unpack_puback(struct app_buf *buf, struct m5_pub_response *msg,
+		     struct m5_prop *prop)
+{
+	return m5_unpack_pub_msgs(buf, msg, prop, M5_PKT_PUBACK);
+}
+
+int m5_unpack_pubrec(struct app_buf *buf, struct m5_pub_response *msg,
+		     struct m5_prop *prop)
+{
+	return m5_unpack_pub_msgs(buf, msg, prop, M5_PKT_PUBREC);
+}
+
+int m5_unpack_pubrel(struct app_buf *buf, struct m5_pub_response *msg,
+		     struct m5_prop *prop)
+{
+	return m5_unpack_pub_msgs(buf, msg, prop, M5_PKT_PUBREL);
+}
+
+int m5_unpack_pubcomp(struct app_buf *buf, struct m5_pub_response *msg,
+		     struct m5_prop *prop)
+{
+	return m5_unpack_pub_msgs(buf, msg, prop, M5_PKT_PUBCOMP);
+}

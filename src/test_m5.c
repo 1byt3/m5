@@ -683,6 +683,10 @@ static void test_m5_publish(void)
 	print_raw((void *)msg2.payload, msg2.payload_len);
 }
 
+/* XXX
+ * Add the PUB response test case
+ */
+
 int main(void)
 {
 	test_int_encoding();

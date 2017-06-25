@@ -321,13 +321,25 @@ int m5_unpack_publish(struct app_buf *buf, struct m5_publish *msg,
 int m5_pack_puback(struct app_buf *buf, struct m5_pub_response *msg,
 		   struct m5_prop *prop);
 
+int m5_unpack_puback(struct app_buf *buf, struct m5_pub_response *msg,
+		     struct m5_prop *prop);
+
 int m5_pack_pubrec(struct app_buf *buf, struct m5_pub_response *msg,
 		   struct m5_prop *prop);
+
+int m5_unpack_pubrec(struct app_buf *buf, struct m5_pub_response *msg,
+		     struct m5_prop *prop);
 
 int m5_pack_pubrel(struct app_buf *buf, struct m5_pub_response *msg,
 		   struct m5_prop *prop);
 
+int m5_unpack_pubrel(struct app_buf *buf, struct m5_pub_response *msg,
+		     struct m5_prop *prop);
+
 int m5_pack_pubcomp(struct app_buf *buf, struct m5_pub_response *msg,
 		    struct m5_prop *prop);
+
+int m5_unpack_pubcomp(struct app_buf *buf, struct m5_pub_response *msg,
+		      struct m5_prop *prop);
 
 #endif
