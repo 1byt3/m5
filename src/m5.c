@@ -2076,3 +2076,114 @@ int m5_unpack_publish(struct app_buf *buf, struct m5_publish *msg,
 
 	return EXIT_SUCCESS;
 }
+
+
+static int m5_pub_reason_code(enum m5_pkt_type pkt_type, uint8_t reason_code)
+{
+	switch (pkt_type) {
+	default:
+		return -EINVAL;
+	case M5_PKT_PUBACK:
+	case M5_PKT_PUBREC:
+		switch (reason_code) {
+		default:
+			return -EINVAL;
+		case M5_RC_SUCCESS:
+		case M5_RC_NO_MATCHING_SUBSCRIBERS:
+		case M5_RC_UNSPECIFIED_ERROR:
+		case M5_RC_IMPLEMENTATION_SPECIFIC_ERROR:
+		case M5_RC_NOT_AUTHORIZED:
+		case M5_RC_TOPIC_NAME_INVALID:
+		case M5_RC_PACKET_IDENTIFIER_IN_USE:
+		case M5_RC_QUOTA_EXCEEDED:
+		case M5_RC_PAYLOAD_FORMAT_INVALID:
+			return EXIT_SUCCESS;
+		}
+	case M5_PKT_PUBREL:
+	case M5_PKT_PUBCOMP:
+		switch (reason_code) {
+		default:
+			return -EINVAL;
+		case M5_RC_SUCCESS:
+		case M5_RC_PACKET_IDENTIFIER_NOT_FOUND:
+			return EXIT_SUCCESS;
+		}
+	}
+
+	return EXIT_SUCCESS;
+}
+
+static int m5_pack_pub_msgs(struct app_buf *buf, struct m5_pub_response *msg,
+			    struct m5_prop *prop, enum m5_pkt_type pkt_type)
+{
+	uint32_t prop_wsize_wsize;
+	uint32_t full_msg_size;
+	uint32_t prop_wsize;
+	uint32_t rlen_wsize;
+	uint32_t rlen;
+	int rc;
+
+	if (buf == NULL || msg == NULL || msg->packet_id == 0x00) {
+		return -EINVAL;
+	}
+
+	rc = m5_pub_reason_code(pkt_type, msg->reason_code);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	rc = m5_prop_wsize(pkt_type, prop, &prop_wsize);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	rc = m5_rlen_wsize(prop_wsize, &prop_wsize_wsize);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	rlen = M5_PACKET_ID_WSIZE + 1 + prop_wsize_wsize + prop_wsize;
+	rc = m5_rlen_wsize(rlen, &rlen_wsize);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	full_msg_size = M5_PACKET_TYPE_WSIZE + rlen + rlen_wsize;
+	if (APPBUF_FREE_WRITE_SPACE(buf) < full_msg_size) {
+		return -ENOMEM;
+	}
+
+	m5_add_u8(buf, pkt_type << 4);
+	m5_encode_int(buf, rlen);
+	m5_add_u16(buf, msg->packet_id);
+	m5_add_u8(buf, msg->reason_code);
+
+	rc = m5_pack_prop(buf, prop, prop_wsize);
+
+	return rc;
+}
+
+int m5_pack_puback(struct app_buf *buf, struct m5_pub_response *msg,
+		   struct m5_prop *prop)
+{
+	return m5_pack_pub_msgs(buf, msg, prop, M5_PKT_PUBACK);
+}
+
+int m5_pack_pubrec(struct app_buf *buf, struct m5_pub_response *msg,
+		   struct m5_prop *prop)
+{
+	return m5_pack_pub_msgs(buf, msg, prop, M5_PKT_PUBREC);
+}
+
+int m5_pack_pubrel(struct app_buf *buf, struct m5_pub_response *msg,
+		   struct m5_prop *prop)
+{
+	return m5_pack_pub_msgs(buf, msg, prop, M5_PKT_PUBREL);
+}
+
+int m5_pack_pubcomp(struct app_buf *buf, struct m5_pub_response *msg,
+		   struct m5_prop *prop)
+{
+	return m5_pack_pub_msgs(buf, msg, prop, M5_PKT_PUBCOMP);
+}
+

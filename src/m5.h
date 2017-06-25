@@ -235,6 +235,11 @@ struct m5_publish {
 	uint8_t retain;
 };
 
+struct m5_pub_response {
+	uint16_t packet_id;
+	uint8_t reason_code;
+};
+
 void m5_prop_payload_format_indicator(struct m5_prop *prop, uint8_t v);
 
 void m5_prop_publication_expiry_interval(struct m5_prop *prop, uint32_t v);
@@ -312,5 +317,17 @@ int m5_pack_publish(struct app_buf *buf, struct m5_publish *msg,
 
 int m5_unpack_publish(struct app_buf *buf, struct m5_publish *msg,
 		      struct m5_prop *prop);
+
+int m5_pack_puback(struct app_buf *buf, struct m5_pub_response *msg,
+		   struct m5_prop *prop);
+
+int m5_pack_pubrec(struct app_buf *buf, struct m5_pub_response *msg,
+		   struct m5_prop *prop);
+
+int m5_pack_pubrel(struct app_buf *buf, struct m5_pub_response *msg,
+		   struct m5_prop *prop);
+
+int m5_pack_pubcomp(struct app_buf *buf, struct m5_pub_response *msg,
+		    struct m5_prop *prop);
 
 #endif
