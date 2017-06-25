@@ -79,7 +79,7 @@ static const char * const m5_prop_name[] = {
 	"USER_PROPERTY",
 };
 
-void print_raw(uint8_t *data, size_t len)
+static void print_raw(uint8_t *data, size_t len)
 {
 	size_t i;
 
@@ -93,7 +93,7 @@ void print_raw(uint8_t *data, size_t len)
 	printf("\n");
 }
 
-void print_buf(struct app_buf *buf)
+static void print_buf(struct app_buf *buf)
 {
 	printf("Size: %zu, Len: %zu, Offset: %zu\n",
 	       buf->size, buf->len, buf->offset);
@@ -241,7 +241,7 @@ int cmp_str(uint8_t *a, uint16_t a_len, uint8_t *b, uint16_t b_len)
 	return EXIT_SUCCESS;
 }
 
-int cmp_prop(struct m5_prop *p1, struct m5_prop *p2)
+static int cmp_prop(struct m5_prop *p1, struct m5_prop *p2)
 {
 	int rc;
 
@@ -402,7 +402,7 @@ int cmp_prop(struct m5_prop *p1, struct m5_prop *p2)
 	printf("Prev prop flags: 0x%08x, adding: %s\n",		\
 	       prop.flags, m5_prop_name[(new_prop)])
 
-void test_m5_connect(void)
+static void test_m5_connect(void)
 {
 	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
 			       .size = sizeof(data)};
@@ -556,7 +556,7 @@ static void print_prop(struct m5_prop *p)
 	}
 }
 
-void test_m5_connack(void)
+static void test_m5_connack(void)
 {
 	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
 			       .size = sizeof(data)};
