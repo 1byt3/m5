@@ -618,6 +618,71 @@ void test_m5_connack(void)
 	print_prop(&prop);
 }
 
+static void test_m5_publish(void)
+{
+	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
+			       .size = sizeof(data)};
+	struct m5_publish msg2 = { 0 };
+	struct m5_publish msg = { 0 };
+	struct m5_prop prop2 = { 0 };
+	struct m5_prop prop = { 0 };
+	int rc;
+	int i;
+
+	msg.dup = 1;
+	msg.qos = M5_QoS1;
+	msg.retain = 1;
+	msg.packet_id = 0x1234;
+	msg.topic_name = (uint8_t *)"topic";
+	msg.topic_name_len = strlen((char *)msg.topic_name);
+	msg.payload = (uint8_t *)"hello";
+	msg.payload_len = strlen((char *)msg.payload);
+
+	m5_prop_payload_format_indicator(&prop, 0xAB);
+	m5_prop_publication_expiry_interval(&prop, 0x12);
+	m5_prop_topic_alias(&prop, 0x12);
+	m5_prop_response_topic(&prop, (uint8_t *)"topic", 5);
+	m5_prop_correlation_data(&prop, (uint8_t *)"data", 4);
+	for (i = 0; i < M5_USER_PROP_SIZE; i++) {
+		rc = m5_prop_add_user_prop(&prop, (uint8_t *)"hello", 5,
+						  (uint8_t *)"world!", 6);
+		if (rc != EXIT_SUCCESS) {
+			DBG("m5_prop_add_user_prop");
+			exit(1);
+		}
+	}
+	m5_prop_subscription_id(&prop, 0x12);
+	m5_prop_content_type(&prop, (uint8_t *)"data", 4);
+
+	rc = m5_pack_publish(&buf, &msg, &prop);
+	if (rc != EXIT_SUCCESS) {
+		DBG("m5_pack_publish");
+		exit(1);
+	}
+
+	buf.offset = 0;
+	rc = m5_unpack_publish(&buf, &msg2, &prop2);
+	if (rc != EXIT_SUCCESS) {
+		DBG("m5_unpack_publish");
+		exit(1);
+	}
+
+	print_buf(&buf);
+	print_prop(&prop);
+	print_prop(&prop2);
+
+	rc = cmp_prop(&prop, &prop2);
+	if (rc != EXIT_SUCCESS) {
+		DBG("cmp_prop");
+		exit(1);
+	}
+
+	printf("Publish packed payload:   ");
+	print_raw((void *)msg.payload, msg.payload_len);
+	printf("Publish unpacked payload: ");
+	print_raw((void *)msg2.payload, msg2.payload_len);
+}
+
 int main(void)
 {
 	test_int_encoding();
@@ -625,6 +690,7 @@ int main(void)
 	test_m5_add_str();
 	test_m5_connect();
 	test_m5_connack();
+	test_m5_publish();
 
 	return 0;
 }
