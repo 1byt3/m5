@@ -687,6 +687,92 @@ static void test_m5_publish(void)
  * Add the PUB response test case
  */
 
+
+static int compare_topics(struct m5_topics *t1, struct m5_topics *t2)
+{
+	uint8_t i;
+	int rc;
+
+	if (t1->items != t2->items) {
+		printf("[%s:%d]\n", __FILE__, __LINE__);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < t1->items; i++) {
+		rc = cmp_str(t1->topics[i], t1->len[i],
+			     t2->topics[i], t2->len[i]);
+		if (rc != 0) {
+			printf("[%s:%d]\n", __FILE__, __LINE__);
+			return -EINVAL;
+		}
+	}
+
+	return EXIT_SUCCESS;
+}
+
+static void test_m5_subscribe(void)
+{
+	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
+			       .size = sizeof(data)};
+	uint8_t *topics[] = {(uint8_t *)"sensors", (uint8_t *)"doors",
+			     (uint8_t *)"windows"};
+	uint8_t options[] = {M5_QoS0, M5_QoS1, M5_QoS2};
+	uint16_t topics_len[] = {7, 5, 7};
+	struct m5_subscribe msg2 = { 0 };
+	struct m5_subscribe msg = { 0 };
+	struct m5_prop prop2 = { 0 };
+	struct m5_prop prop = { 0 };
+	uint16_t topics_len2[3];
+	uint8_t *topics2[3];
+	uint8_t options2[3];
+	int rc;
+
+	msg.packet_id = 0xABCD;
+	msg.topics.items = 3;
+	msg.topics.size = 3;
+	msg.options = options;
+	msg.topics.topics = topics;
+	msg.topics.len = topics_len;
+
+	m5_prop_subscription_id(&prop, 0x1234);
+	rc = m5_pack_subscribe(&buf, &msg, &prop);
+	if (rc != EXIT_SUCCESS) {
+		DBG("m5_pack_subscribe");
+		exit(1);
+	}
+
+	printf("Subscribe\n");
+	print_buf(&buf);
+	print_prop(&prop);
+
+	msg2.topics.items = 0;
+	msg2.options = options2;
+	msg2.topics.topics = topics2;
+	msg2.topics.len = topics_len2;
+	msg2.topics.size = 3;
+
+	buf.offset = 0;
+	rc = m5_unpack_subscribe(&buf, &msg2, &prop2);
+	if (rc != EXIT_SUCCESS) {
+		DBG("m5_unpack_subscribe");
+		exit(1);
+	}
+
+	print_prop(&prop2);
+
+	rc = cmp_prop(&prop, &prop2);
+	if (rc != EXIT_SUCCESS) {
+		DBG("cmp_prop");
+		exit(1);
+	}
+
+	rc = compare_topics(&msg.topics, &msg2.topics);
+	if (rc != EXIT_SUCCESS) {
+		DBG("compare_topics");
+		exit(1);
+	}
+}
+
 int main(void)
 {
 	test_int_encoding();
@@ -695,6 +781,7 @@ int main(void)
 	test_m5_connect();
 	test_m5_connack();
 	test_m5_publish();
+	test_m5_subscribe();
 
 	return 0;
 }
