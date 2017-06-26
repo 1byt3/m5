@@ -248,6 +248,13 @@ struct m5_topics {
 	uint16_t size;
 };
 
+struct m5_subscribe {
+	struct m5_topics topics;
+	uint8_t *options;
+
+	uint16_t packet_id;
+};
+
 void m5_prop_payload_format_indicator(struct m5_prop *prop, uint8_t v);
 
 void m5_prop_publication_expiry_interval(struct m5_prop *prop, uint32_t v);
