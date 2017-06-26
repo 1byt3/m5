@@ -2354,3 +2354,92 @@ int m5_pack_subscribe(struct app_buf *buf, struct m5_subscribe *msg,
 
 	return rc;
 }
+
+static int m5_unpack_subscribe_payload(struct app_buf *buf,
+				       struct m5_subscribe *msg,
+				       uint32_t payload_wsize)
+{
+	uint32_t read_bytes = buf->offset;
+	uint8_t i = 0;
+	int rc;
+
+	do {
+		if (i >= msg->topics.size) {
+			return -ENOMEM;
+		}
+
+		rc = m5_unpack_binary(buf, &msg->topics.topics[i],
+				       &msg->topics.len[i]);
+		if (rc != EXIT_SUCCESS) {
+			return rc;
+		}
+
+		rc = m5_unpack_u8(buf, &msg->options[i]);
+		if (rc != EXIT_SUCCESS) {
+			return rc;
+		}
+
+		i++;
+	} while (APPBUF_FREE_READ_SPACE(buf) > 0);
+
+	msg->topics.items = i;
+
+	read_bytes = buf->offset - read_bytes;
+	if (read_bytes != payload_wsize) {
+		return -EINVAL;
+	}
+
+	return EXIT_SUCCESS;
+}
+
+int m5_unpack_subscribe(struct app_buf *buf, struct m5_subscribe *msg,
+			struct m5_prop *prop)
+{
+	const uint8_t subscribe_first_byte = (M5_PKT_SUBSCRIBE << 4) | 0x02;
+	uint32_t payload_wsize;
+	uint32_t fixed_header;
+	uint32_t already_read;
+	uint32_t rlen_wsize;
+	uint8_t first;
+	uint32_t rlen;
+	int rc;
+
+	if (buf == NULL || msg == NULL) {
+		return -EINVAL;
+	}
+
+	already_read = buf->offset;
+
+	rc = m5_unpack_u8(buf, &first);
+	if (rc != EXIT_SUCCESS || first != subscribe_first_byte) {
+		return -EINVAL;
+	}
+
+	rc = m5_decode_int(buf, &rlen, &rlen_wsize);
+	if (rc != EXIT_SUCCESS || buf->offset + rlen > buf->len) {
+		return -EINVAL;
+	}
+
+	rc = m5_unpack_u16(buf, &msg->packet_id);
+	if (rc != EXIT_SUCCESS || msg->packet_id <= 0) {
+		return -EINVAL;
+	}
+
+	rc = m5_unpack_prop(buf, prop, M5_PKT_SUBSCRIBE);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	fixed_header = M5_PACKET_TYPE_WSIZE + rlen_wsize;
+	payload_wsize = rlen - (buf->offset - fixed_header);
+	rc = m5_unpack_subscribe_payload(buf, msg, payload_wsize);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	if (buf->offset - already_read != rlen + fixed_header) {
+		return -EINVAL;
+	}
+
+	return EXIT_SUCCESS;
+}
