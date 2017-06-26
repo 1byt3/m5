@@ -357,4 +357,10 @@ int m5_pack_pubcomp(struct app_buf *buf, struct m5_pub_response *msg,
 int m5_unpack_pubcomp(struct app_buf *buf, struct m5_pub_response *msg,
 		      struct m5_prop *prop);
 
+int m5_pack_subscribe(struct app_buf *buf, struct m5_subscribe *msg,
+		      struct m5_prop *prop);
+
+int m5_unpack_subscribe(struct app_buf *buf, struct m5_subscribe *msg,
+			struct m5_prop *prop);
+
 #endif
