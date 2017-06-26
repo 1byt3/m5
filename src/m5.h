@@ -240,6 +240,14 @@ struct m5_pub_response {
 	uint8_t reason_code;
 };
 
+struct m5_topics {
+	uint8_t **topics;
+	uint16_t *len;
+
+	uint16_t items;
+	uint16_t size;
+};
+
 void m5_prop_payload_format_indicator(struct m5_prop *prop, uint8_t v);
 
 void m5_prop_publication_expiry_interval(struct m5_prop *prop, uint32_t v);
