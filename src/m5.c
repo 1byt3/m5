@@ -2540,3 +2540,87 @@ int m5_pack_suback(struct app_buf *buf, struct m5_suback *msg,
 
 	return rc;
 }
+
+static int m5_unpack_suback_payload(struct app_buf *buf, struct m5_suback *msg,
+				    uint8_t elements)
+{
+	uint8_t i;
+	int rc;
+
+	if (APPBUF_FREE_READ_SPACE(buf) < elements || msg->rc_size < elements) {
+		return -ENOMEM;
+	}
+
+	i = 0;
+	while (i < elements) {
+		msg->rc[i] = buf->data[buf->offset + i];
+
+		rc = m5_suback_reason_code(msg->rc[i]);
+		if (rc != EXIT_SUCCESS) {
+			return rc;
+		}
+
+		i++;
+	}
+
+	buf->offset += i;
+	msg->rc_items = i;
+
+	return EXIT_SUCCESS;
+}
+
+int m5_unpack_suback(struct app_buf *buf, struct m5_suback *msg,
+		     struct m5_prop *prop)
+{
+	uint32_t payload_wsize;
+	uint32_t already_read;
+	uint32_t fixed_header;
+	uint32_t rlen_wsize;
+	uint8_t first;
+	uint32_t rlen;
+
+	int rc;
+
+	if (buf == NULL || msg == NULL || msg->rc_size == 0) {
+		return -EINVAL;
+	}
+
+	already_read = buf->offset;
+
+	rc = m5_unpack_u8(buf, &first);
+	if (rc != EXIT_SUCCESS || first != (M5_PKT_SUBACK << 4)) {
+		return -EINVAL;
+	}
+
+	rc = m5_decode_int(buf, &rlen, &rlen_wsize);
+	if (rc != EXIT_SUCCESS || buf->offset + rlen > buf->len) {
+		return -EINVAL;
+	}
+
+	rc = m5_unpack_u16(buf, &msg->packet_id);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	rc = m5_unpack_prop(buf, prop, M5_PKT_SUBACK);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	fixed_header = M5_PACKET_TYPE_WSIZE + rlen_wsize;
+	payload_wsize = rlen - (buf->offset - already_read - fixed_header);
+	if (payload_wsize > UINT8_MAX || payload_wsize == 0) {
+		return -EINVAL;
+	}
+
+	rc = m5_unpack_suback_payload(buf, msg, payload_wsize);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	if (buf->offset - already_read != rlen + fixed_header) {
+		return -EINVAL;
+	}
+
+	return EXIT_SUCCESS;
+}
