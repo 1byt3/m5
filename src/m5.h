@@ -255,6 +255,15 @@ struct m5_subscribe {
 	uint16_t packet_id;
 };
 
+struct m5_suback {
+	uint8_t *rc;
+
+	uint16_t packet_id;
+
+	uint8_t rc_size;
+	uint8_t rc_items;
+};
+
 void m5_prop_payload_format_indicator(struct m5_prop *prop, uint8_t v);
 
 void m5_prop_publication_expiry_interval(struct m5_prop *prop, uint32_t v);
