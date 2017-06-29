@@ -2443,3 +2443,100 @@ int m5_unpack_subscribe(struct app_buf *buf, struct m5_subscribe *msg,
 
 	return EXIT_SUCCESS;
 }
+
+static int m5_suback_reason_code(int rc)
+{
+	switch (rc) {
+	case M5_RC_GRANTED_QOS0:
+	case M5_RC_GRANTED_QOS1:
+	case M5_RC_GRANTED_QOS2:
+	case M5_RC_UNSPECIFIED_ERROR:
+	case M5_RC_IMPLEMENTATION_SPECIFIC_ERROR:
+	case M5_RC_NOT_AUTHORIZED:
+	case M5_RC_TOPIC_FILTER_INVALID:
+	case M5_RC_PACKET_IDENTIFIER_IN_USE:
+	case M5_RC_QUOTA_EXCEEDED:
+	case M5_RC_SHARED_SUBSCRIPTION_NOT_SUPPORTED:
+	case M5_RC_SUBSCRIPTION_IDENTIFIERS_NOT_SUPPORTED:
+	case M5_RC_WILDCARD_SUBSCRIPTION_NOT_SUPPORTED:
+		return EXIT_SUCCESS;
+	}
+
+	return -EINVAL;
+}
+
+static int m5_pack_suback_payload(struct app_buf *buf, struct m5_suback *msg)
+{
+	uint8_t i = 0;
+
+	while (i < msg->rc_items) {
+		uint8_t reason_code = msg->rc[i];
+		int rc;
+
+		rc = m5_suback_reason_code(reason_code);
+		if (rc != EXIT_SUCCESS) {
+			return rc;
+		}
+
+		buf->data[buf->len + i] = reason_code;
+		i++;
+	};
+
+	buf->len += i;
+
+	return EXIT_SUCCESS;
+}
+
+int m5_pack_suback(struct app_buf *buf, struct m5_suback *msg,
+		    struct m5_prop *prop)
+{
+	uint32_t prop_wsize_wsize;
+	uint32_t payload_wsize;
+	uint32_t full_msg_size;
+	uint32_t prop_wsize;
+	uint32_t rlen_wsize;
+	uint32_t rlen;
+	int rc;
+
+	if (buf == NULL || msg == NULL || msg->packet_id == 0x00 ||
+					  msg->rc_items == 0) {
+		return -EINVAL;
+	}
+
+	rc = m5_prop_wsize(M5_PKT_SUBACK, prop, &prop_wsize);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	rc = m5_rlen_wsize(prop_wsize, &prop_wsize_wsize);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	payload_wsize = msg->rc_items;
+
+	rlen = M5_PACKET_ID_WSIZE + prop_wsize_wsize + prop_wsize +
+	       payload_wsize;
+	rc = m5_rlen_wsize(rlen, &rlen_wsize);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	full_msg_size = M5_PACKET_TYPE_WSIZE + rlen + rlen_wsize;
+	if (APPBUF_FREE_WRITE_SPACE(buf) < full_msg_size) {
+		return -ENOMEM;
+	}
+
+	m5_add_u8(buf, M5_PKT_SUBACK << 4);
+	m5_encode_int(buf, rlen);
+	m5_add_u16(buf, msg->packet_id);
+
+	rc = m5_pack_prop(buf, prop, prop_wsize);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	rc = m5_pack_suback_payload(buf, msg);
+
+	return rc;
+}
