@@ -2624,3 +2624,52 @@ int m5_unpack_suback(struct app_buf *buf, struct m5_suback *msg,
 
 	return EXIT_SUCCESS;
 }
+
+static int m5_pack_topics(struct app_buf *buf, struct m5_topics *topics)
+{
+	uint8_t i;
+
+	for (i = 0; i < topics->items; i++) {
+		m5_add_binary(buf, topics->topics[i], topics->len[i]);
+	}
+
+	return EXIT_SUCCESS;
+}
+
+int m5_pack_unsubscribe(struct app_buf *buf, struct m5_unsubscribe *msg)
+{
+	uint32_t payload_wsize;
+	uint32_t full_msg_size;
+	uint32_t rlen_wsize;
+	uint32_t rlen;
+	int rc;
+
+	if (buf == NULL || msg == NULL || msg->packet_id == 0x00 ||
+	    msg->topics.items == 0) {
+		return -EINVAL;
+	}
+
+	rc = m5_topics_wsize(&msg->topics, &payload_wsize);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	rlen = M5_PACKET_ID_WSIZE + payload_wsize;
+	rc = m5_rlen_wsize(rlen, &rlen_wsize);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	full_msg_size = M5_PACKET_TYPE_WSIZE + rlen + rlen_wsize;
+	if (APPBUF_FREE_WRITE_SPACE(buf) < full_msg_size) {
+		return -ENOMEM;
+	}
+
+	m5_add_u8(buf, (M5_PKT_UNSUBSCRIBE << 4 | 0x02));
+	m5_encode_int(buf, rlen);
+	m5_add_u16(buf, msg->packet_id);
+
+	rc = m5_pack_topics(buf, &msg->topics);
+
+	return rc;
+}
