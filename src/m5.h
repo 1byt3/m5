@@ -384,4 +384,8 @@ int m5_pack_suback(struct app_buf *buf, struct m5_suback *msg,
 int m5_unpack_suback(struct app_buf *buf, struct m5_suback *msg,
 		     struct m5_prop *prop);
 
+int m5_pack_unsubscribe(struct app_buf *buf, struct m5_unsubscribe *msg);
+
+int m5_unpack_unsubscribe(struct app_buf *buf, struct m5_unsubscribe *msg);
+
 #endif
