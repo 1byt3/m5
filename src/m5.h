@@ -264,6 +264,12 @@ struct m5_suback {
 	uint8_t rc_items;
 };
 
+struct m5_unsubscribe {
+	struct m5_topics topics;
+
+	uint16_t packet_id;
+};
+
 void m5_prop_payload_format_indicator(struct m5_prop *prop, uint8_t v);
 
 void m5_prop_publication_expiry_interval(struct m5_prop *prop, uint32_t v);
