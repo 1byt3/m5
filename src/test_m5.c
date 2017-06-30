@@ -773,6 +773,64 @@ static void test_m5_subscribe(void)
 	}
 }
 
+static void test_m5_suback(void)
+{
+	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
+			       .size = sizeof(data)};
+	uint8_t reason_code[] = {M5_QoS0, M5_QoS1, M5_QoS2};
+	struct m5_suback msg2 = { 0 };
+	struct m5_suback msg = { 0 };
+	struct m5_prop prop2 = { 0 };
+	struct m5_prop prop = { 0 };
+	uint8_t reason_code2[3];
+	int rc;
+	int i;
+
+	msg.packet_id = 0x1234;
+	msg.rc_items = 3;
+	msg.rc_size = 3;
+	msg.rc = reason_code;
+
+	m5_prop_reason_str(&prop, (uint8_t *)"reason", 6);
+	for (i = 0; i < M5_USER_PROP_SIZE; i++) {
+		rc = m5_prop_add_user_prop(&prop, (uint8_t *)"hello", 5,
+						  (uint8_t *)"world!", 6);
+		if (rc != EXIT_SUCCESS) {
+			DBG("m5_prop_add_user_prop");
+			exit(1);
+		}
+	}
+
+	rc = m5_pack_suback(&buf, &msg, &prop);
+	if (rc != EXIT_SUCCESS) {
+		DBG("m5_pack_suback");
+		exit(1);
+	}
+
+	printf("SUBACK\n");
+	print_buf(&buf);
+	print_prop(&prop);
+
+	msg2.rc_items = 0;
+	msg2.rc_size = 3;
+	msg2.rc = reason_code2;
+
+	buf.offset = 0;
+	rc = m5_unpack_suback(&buf, &msg2, &prop2);
+	if (rc != EXIT_SUCCESS) {
+		DBG("m5_unpack_suback");
+		exit(1);
+	}
+
+	print_prop(&prop2);
+
+	rc = cmp_prop(&prop, &prop2);
+	if (rc != EXIT_SUCCESS) {
+		DBG("cmp_prop");
+		exit(1);
+	}
+}
+
 int main(void)
 {
 	test_int_encoding();
@@ -782,6 +840,7 @@ int main(void)
 	test_m5_connack();
 	test_m5_publish();
 	test_m5_subscribe();
+	test_m5_suback();
 
 	return 0;
 }
