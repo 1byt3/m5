@@ -831,6 +831,54 @@ static void test_m5_suback(void)
 	}
 }
 
+static void test_m5_unsubscribe(void)
+{
+	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
+			       .size = sizeof(data)};
+	uint8_t *topics[] = {(uint8_t *)"sensors", (uint8_t *)"doors",
+			     (uint8_t *)"windows"};
+	struct m5_unsubscribe msg2 = { 0 };
+	struct m5_unsubscribe msg = { 0 };
+	uint16_t topics_len[] = {7, 5, 7};
+	uint16_t topics_len2[3];
+	uint8_t *t2[3];
+	int rc;
+
+	msg.packet_id = 0x1234;
+	msg.topics.items = 3;
+	msg.topics.size = 3;
+	msg.topics.topics = topics;
+	msg.topics.len = topics_len;
+
+	rc = m5_pack_unsubscribe(&buf, &msg);
+	if (rc != EXIT_SUCCESS) {
+		DBG("m5_pack_unsubscribe");
+		exit(1);
+	}
+
+	printf("UNSUBSCRIBE\n");
+	print_buf(&buf);
+
+	msg2.topics.items = 0;
+	msg2.topics.topics = t2;
+	msg2.topics.len = topics_len2;
+	msg2.topics.size = 3;
+
+	buf.offset = 0;
+	rc = m5_unpack_unsubscribe(&buf, &msg2);
+	if (rc != EXIT_SUCCESS) {
+		DBG("m5_unpack_unsubscribe");
+		exit(1);
+	}
+
+	rc = compare_topics(&msg.topics, &msg2.topics);
+	if (rc != EXIT_SUCCESS) {
+		DBG("compare_topics");
+		exit(1);
+	}
+}
+
+
 int main(void)
 {
 	test_int_encoding();
@@ -841,6 +889,7 @@ int main(void)
 	test_m5_publish();
 	test_m5_subscribe();
 	test_m5_suback();
+	test_m5_unsubscribe();
 
 	return 0;
 }
