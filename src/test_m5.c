@@ -228,7 +228,7 @@ static void test_m5_add_str(void)
 #define PROP_CMP_INT(p1, p2, name)				\
 	(p1->_ ## name == p2->_ ## name ? EXIT_SUCCESS : -EINVAL)
 
-int cmp_str(uint8_t *a, uint16_t a_len, uint8_t *b, uint16_t b_len)
+static int cmp_str(uint8_t *a, uint16_t a_len, uint8_t *b, uint16_t b_len)
 {
 	if (a_len != b_len) {
 		return -EINVAL;
