@@ -878,6 +878,49 @@ static void test_m5_unsubscribe(void)
 	}
 }
 
+static void test_m5_unsuback(void)
+{
+	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
+			       .size = sizeof(data)};
+	struct m5_prop prop2 = { 0 };
+	struct m5_prop prop = { 0 };
+	uint16_t pkt_id = 0x1234;
+	int rc;
+	int i;
+
+	m5_prop_reason_str(&prop, (uint8_t *)"reason", 6);
+	for (i = 0; i < M5_USER_PROP_SIZE; i++) {
+		rc = m5_prop_add_user_prop(&prop, (uint8_t *)"hello", 5,
+						  (uint8_t *)"world!", 6);
+		if (rc != EXIT_SUCCESS) {
+			DBG("m5_prop_add_user_prop");
+			exit(1);
+		}
+	}
+
+	rc = m5_pack_unsuback(&buf, pkt_id, &prop);
+	if (rc != EXIT_SUCCESS) {
+		DBG("m5_pack_unsuback");
+		exit(1);
+	}
+
+	printf("UNSUBACK\n");
+	print_buf(&buf);
+	print_prop(&prop);
+
+	buf.offset = 0;
+	rc = m5_unpack_unsuback(&buf, &pkt_id, &prop2);
+	if (rc != EXIT_SUCCESS) {
+		DBG("m5_unpack_unsuback");
+		exit(1);
+	}
+
+	rc = cmp_prop(&prop, &prop2);
+	if (rc != EXIT_SUCCESS) {
+		DBG("cmp_prop");
+		exit(1);
+	}
+}
 
 int main(void)
 {
@@ -890,6 +933,7 @@ int main(void)
 	test_m5_subscribe();
 	test_m5_suback();
 	test_m5_unsubscribe();
+	test_m5_unsuback();
 
 	return 0;
 }
