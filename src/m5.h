@@ -388,4 +388,7 @@ int m5_pack_unsubscribe(struct app_buf *buf, struct m5_unsubscribe *msg);
 
 int m5_unpack_unsubscribe(struct app_buf *buf, struct m5_unsubscribe *msg);
 
+int m5_pack_unsuback(struct app_buf *buf, uint16_t packet_id,
+		     struct m5_prop *prop);
+
 #endif
