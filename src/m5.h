@@ -398,4 +398,8 @@ int m5_pack_pingreq(struct app_buf *buf);
 
 int m5_pack_pingresp(struct app_buf *buf);
 
+int m5_unpack_pingreq(struct app_buf *buf);
+
+int m5_unpack_pingresp(struct app_buf *buf);
+
 #endif

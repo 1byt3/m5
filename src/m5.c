@@ -2872,3 +2872,29 @@ int m5_pack_pingresp(struct app_buf *buf)
 {
 	return m5_pack_ping_msgs(buf, M5_PKT_PINGRESP);
 }
+
+static int m5_unpack_ping_msgs(struct app_buf *buf, enum m5_pkt_type pkt_type)
+{
+	if (buf == NULL || APPBUF_FREE_READ_SPACE(buf) < 2) {
+		return -ENOMEM;
+	}
+
+	if (buf->data[buf->offset + 0] != (pkt_type << 4) ||
+	    buf->data[buf->offset + 1] != 0) {
+		return -EINVAL;
+	}
+
+	buf->offset += 2;
+
+	return EXIT_SUCCESS;
+}
+
+int m5_unpack_pingreq(struct app_buf *buf)
+{
+	return m5_unpack_ping_msgs(buf, M5_PKT_PINGREQ);
+}
+
+int m5_unpack_pingresp(struct app_buf *buf)
+{
+	return m5_unpack_ping_msgs(buf, M5_PKT_PINGRESP);
+}
