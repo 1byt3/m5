@@ -2849,3 +2849,26 @@ int m5_unpack_unsuback(struct app_buf *buf, uint16_t *packet_id,
 
 	return EXIT_SUCCESS;
 }
+
+static int m5_pack_ping_msgs(struct app_buf *buf, enum m5_pkt_type pkt_type)
+{
+	if (buf == NULL || APPBUF_FREE_WRITE_SPACE(buf) < 2) {
+		return -ENOMEM;
+	}
+
+	buf->data[buf->len + 0] = (pkt_type << 4);
+	buf->data[buf->len + 1] = 0;
+	buf->len += 2;
+
+	return EXIT_SUCCESS;
+}
+
+int m5_pack_pingreq(struct app_buf *buf)
+{
+	return m5_pack_ping_msgs(buf, M5_PKT_PINGREQ);
+}
+
+int m5_pack_pingresp(struct app_buf *buf)
+{
+	return m5_pack_ping_msgs(buf, M5_PKT_PINGRESP);
+}
