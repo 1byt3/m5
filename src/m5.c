@@ -2957,3 +2957,57 @@ int m5_pack_disconnect(struct app_buf *buf, uint8_t reason_code,
 
 	return EXIT_SUCCESS;
 }
+
+int m5_unpack_disconnect(struct app_buf *buf, uint8_t *reason_code,
+			 struct m5_prop *prop)
+{
+	uint32_t fixed_header;
+	uint32_t already_read;
+	uint32_t rlen_wsize;
+	uint8_t first;
+	uint32_t rlen;
+	int rc;
+
+	if (buf == NULL || reason_code == NULL) {
+		return -EINVAL;
+	}
+
+	already_read = buf->offset;
+
+	rc = m5_unpack_u8(buf, &first);
+	if (rc != EXIT_SUCCESS || first != (M5_PKT_DISCONNECT << 4)) {
+		return -EINVAL;
+	}
+
+	rc = m5_decode_int(buf, &rlen, &rlen_wsize);
+	if (rc != EXIT_SUCCESS || buf->offset + rlen > buf->len) {
+		return -EINVAL;
+	}
+
+	if (rlen == 0) {
+		*reason_code = 0x00;
+
+		return EXIT_SUCCESS;
+	}
+
+	rc = m5_unpack_u8(buf, &first);
+	if (rc != EXIT_SUCCESS) {
+		return -EINVAL;
+	}
+
+	*reason_code = first;
+
+	if (rlen > 1) {
+		rc = m5_unpack_prop(buf, prop, M5_PKT_DISCONNECT);
+		if (rc != EXIT_SUCCESS) {
+			return rc;
+		}
+	}
+
+	fixed_header = M5_PACKET_TYPE_WSIZE + rlen_wsize;
+	if (buf->offset - already_read != rlen + fixed_header) {
+		return -EINVAL;
+	}
+
+	return EXIT_SUCCESS;
+}

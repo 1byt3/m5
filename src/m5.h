@@ -405,4 +405,7 @@ int m5_unpack_pingresp(struct app_buf *buf);
 int m5_pack_disconnect(struct app_buf *buf, uint8_t reason_code,
 		       struct m5_prop *prop);
 
+int m5_unpack_disconnect(struct app_buf *buf, uint8_t *reason_code,
+			 struct m5_prop *prop);
+
 #endif
