@@ -922,6 +922,45 @@ static void test_m5_unsuback(void)
 	}
 }
 
+static void test_m5_pings(void)
+{
+	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
+			       .size = sizeof(data)};
+	int rc;
+
+	rc = m5_pack_pingreq(&buf);
+	if (rc != EXIT_SUCCESS) {
+		DBG("m5_pack_pingreq");
+		exit(1);
+	}
+
+	print_buf(&buf);
+
+	buf.offset = 0;
+	rc = m5_unpack_pingreq(&buf);
+	if (rc != EXIT_SUCCESS) {
+		DBG("m5_unpack_pingreq");
+		exit(1);
+	}
+
+	buf.offset = 0;
+	buf.len = 0;
+	rc = m5_pack_pingresp(&buf);
+	if (rc != EXIT_SUCCESS) {
+		DBG("m5_pack_pingresp");
+		exit(1);
+	}
+
+	print_buf(&buf);
+
+	buf.offset = 0;
+	rc = m5_unpack_pingresp(&buf);
+	if (rc != EXIT_SUCCESS) {
+		DBG("m5_unpack_pingresp");
+		exit(1);
+	}
+}
+
 int main(void)
 {
 	test_int_encoding();
@@ -934,6 +973,7 @@ int main(void)
 	test_m5_suback();
 	test_m5_unsubscribe();
 	test_m5_unsuback();
+	test_m5_pings();
 
 	return 0;
 }
