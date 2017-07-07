@@ -3011,3 +3011,91 @@ int m5_unpack_disconnect(struct app_buf *buf, uint8_t *reason_code,
 
 	return EXIT_SUCCESS;
 }
+
+int m5_pack_auth(struct app_buf *buf, uint8_t rcode, struct m5_prop *prop)
+{
+	uint32_t prop_wsize_wsize;
+	uint32_t rlen_wsize = 0;
+	uint32_t full_msg_size;
+	uint32_t prop_wsize;
+
+	uint32_t rlen;
+	int rc;
+
+	if (buf == NULL) {
+		return -EINVAL;
+	}
+
+	rc = m5_prop_wsize(M5_PKT_AUTH, prop, &prop_wsize);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	rc = m5_rlen_wsize(prop_wsize, &prop_wsize_wsize);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	rlen = 1 + prop_wsize_wsize + prop_wsize;
+	rc = m5_rlen_wsize(rlen, &rlen_wsize);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	full_msg_size = M5_PACKET_TYPE_WSIZE + rlen + rlen_wsize;
+	if (APPBUF_FREE_WRITE_SPACE(buf) < full_msg_size) {
+		return -ENOMEM;
+	}
+
+	m5_add_u8(buf, M5_PKT_AUTH << 4 | 0x01);
+	m5_encode_int(buf, rlen);
+	m5_add_u8(buf, rcode);
+	rc = m5_pack_prop(buf, prop, prop_wsize);
+
+	return rc;
+}
+
+int m5_unpack_auth(struct app_buf *buf, uint8_t *rcode,
+		   struct m5_prop *prop)
+{
+	const uint8_t auth_first_byte = (M5_PKT_AUTH << 4) | 0x01;
+	uint32_t fixed_header;
+	uint32_t already_read;
+	uint32_t rlen_wsize;
+	uint8_t first;
+	uint32_t rlen;
+	int rc;
+
+	if (buf == NULL || rcode == NULL) {
+		return -EINVAL;
+	}
+
+	already_read = buf->offset;
+
+	rc = m5_unpack_u8(buf, &first);
+	if (rc != EXIT_SUCCESS || first != auth_first_byte) {
+		return -EINVAL;
+	}
+
+	rc = m5_decode_int(buf, &rlen, &rlen_wsize);
+	if (rc != EXIT_SUCCESS || buf->offset + rlen > buf->len) {
+		return -EINVAL;
+	}
+
+	rc = m5_unpack_u8(buf, rcode);
+	if (rc != EXIT_SUCCESS) {
+		return -EINVAL;
+	}
+
+	rc = m5_unpack_prop(buf, prop, M5_PKT_AUTH);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	fixed_header = M5_PACKET_TYPE_WSIZE + rlen_wsize;
+	if (buf->offset - already_read != rlen + fixed_header) {
+		return -EINVAL;
+	}
+
+	return EXIT_SUCCESS;
+}
