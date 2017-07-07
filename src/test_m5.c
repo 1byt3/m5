@@ -1009,6 +1009,51 @@ static void test_m5_disconnect(void)
 	}
 }
 
+static void test_m5_auth(void)
+{
+	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
+			       .size = sizeof(data)};
+	struct m5_prop prop2 = { 0 };
+	struct m5_prop prop = { 0 };
+	uint8_t ret_code;
+	int rc;
+	int i;
+
+	m5_prop_auth_method(&prop, (uint8_t *)"method", 6);
+	m5_prop_auth_data(&prop, (uint8_t *)"method_payload", 14);
+	for (i = 0; i < M5_USER_PROP_SIZE; i++) {
+		rc = m5_prop_add_user_prop(&prop, (uint8_t *)"hello", 5,
+						  (uint8_t *)"world!", 6);
+		if (rc != EXIT_SUCCESS) {
+			DBG("m5_prop_add_user_prop");
+			exit(1);
+		}
+	}
+	rc = m5_pack_auth(&buf, M5_RC_CONTINUE_AUTHENTICATION, &prop);
+	if (rc != EXIT_SUCCESS) {
+		DBG("m5_pack_auth");
+		exit(1);
+	}
+
+	buf.offset = 0;
+	rc = m5_unpack_auth(&buf, &ret_code, &prop2);
+	if (rc != EXIT_SUCCESS) {
+		DBG("m5_unpack_auth");
+		exit(1);
+	}
+
+	printf("AUTH\n");
+	print_buf(&buf);
+	print_prop(&prop);
+	print_prop(&prop2);
+
+	rc = cmp_prop(&prop, &prop2);
+	if (rc != EXIT_SUCCESS) {
+		DBG("cmp_prop");
+		exit(1);
+	}
+}
+
 int main(void)
 {
 	test_int_encoding();
@@ -1023,6 +1068,7 @@ int main(void)
 	test_m5_unsuback();
 	test_m5_pings();
 	test_m5_disconnect();
+	test_m5_auth();
 
 	return 0;
 }
