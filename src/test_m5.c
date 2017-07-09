@@ -566,6 +566,8 @@ static void test_m5_connack(void)
 	int rc;
 	int i;
 
+	TEST_HDR(__func__);
+
 	msg.return_code = 0x01;
 	msg.session_present = 0x01;
 
@@ -628,6 +630,8 @@ static void test_m5_publish(void)
 	struct m5_prop prop = { 0 };
 	int rc;
 	int i;
+
+	TEST_HDR(__func__);
 
 	msg.dup = 1;
 	msg.qos = M5_QoS1;
@@ -693,6 +697,8 @@ static int compare_topics(struct m5_topics *t1, struct m5_topics *t2)
 	uint8_t i;
 	int rc;
 
+	TEST_HDR(__func__);
+
 	if (t1->items != t2->items) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
 		return -EINVAL;
@@ -726,6 +732,8 @@ static void test_m5_subscribe(void)
 	uint8_t *topics2[3];
 	uint8_t options2[3];
 	int rc;
+
+	TEST_HDR(__func__);
 
 	msg.packet_id = 0xABCD;
 	msg.topics.items = 3;
@@ -786,6 +794,8 @@ static void test_m5_suback(void)
 	int rc;
 	int i;
 
+	TEST_HDR(__func__);
+
 	msg.packet_id = 0x1234;
 	msg.rc_items = 3;
 	msg.rc_size = 3;
@@ -844,6 +854,8 @@ static void test_m5_unsubscribe(void)
 	uint8_t *t2[3];
 	int rc;
 
+	TEST_HDR(__func__);
+
 	msg.packet_id = 0x1234;
 	msg.topics.items = 3;
 	msg.topics.size = 3;
@@ -888,6 +900,8 @@ static void test_m5_unsuback(void)
 	int rc;
 	int i;
 
+	TEST_HDR(__func__);
+
 	m5_prop_reason_str(&prop, (uint8_t *)"reason", 6);
 	for (i = 0; i < M5_USER_PROP_SIZE; i++) {
 		rc = m5_prop_add_user_prop(&prop, (uint8_t *)"hello", 5,
@@ -927,6 +941,8 @@ static void test_m5_pings(void)
 	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
 			       .size = sizeof(data)};
 	int rc;
+
+	TEST_HDR(__func__);
 
 	rc = m5_pack_pingreq(&buf);
 	if (rc != EXIT_SUCCESS) {
@@ -970,6 +986,8 @@ static void test_m5_disconnect(void)
 	uint8_t reason_code;
 	int rc;
 	int i;
+
+	TEST_HDR(__func__);
 
 	m5_prop_session_expiry_interval(&prop, 0x1234);
 	m5_prop_reason_str(&prop, (uint8_t *)"reason", 6);
@@ -1018,6 +1036,8 @@ static void test_m5_auth(void)
 	uint8_t ret_code;
 	int rc;
 	int i;
+
+	TEST_HDR(__func__);
 
 	m5_prop_auth_method(&prop, (uint8_t *)"method", 6);
 	m5_prop_auth_data(&prop, (uint8_t *)"method_payload", 14);
