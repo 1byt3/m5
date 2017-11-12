@@ -2487,8 +2487,8 @@ static int m5_pack_suback_payload(struct app_buf *buf, struct m5_suback *msg)
 	return EXIT_SUCCESS;
 }
 
-int m5_pack_suback(struct app_buf *buf, struct m5_suback *msg,
-		    struct m5_prop *prop)
+static int m5_pack_suback_unsuback(struct app_buf *buf, struct m5_suback *msg,
+				   struct m5_prop *prop, enum m5_pkt_type type)
 {
 	uint32_t prop_wsize_wsize;
 	uint32_t payload_wsize;
@@ -2503,7 +2503,7 @@ int m5_pack_suback(struct app_buf *buf, struct m5_suback *msg,
 		return -EINVAL;
 	}
 
-	rc = m5_prop_wsize(M5_PKT_SUBACK, prop, &prop_wsize);
+	rc = m5_prop_wsize(type, prop, &prop_wsize);
 	if (rc != EXIT_SUCCESS) {
 		return rc;
 	}
@@ -2527,7 +2527,7 @@ int m5_pack_suback(struct app_buf *buf, struct m5_suback *msg,
 		return -ENOMEM;
 	}
 
-	m5_add_u8(buf, M5_PKT_SUBACK << 4);
+	m5_add_u8(buf, type << 4);
 	m5_encode_int(buf, rlen);
 	m5_add_u16(buf, msg->packet_id);
 
@@ -2539,6 +2539,12 @@ int m5_pack_suback(struct app_buf *buf, struct m5_suback *msg,
 	rc = m5_pack_suback_payload(buf, msg);
 
 	return rc;
+}
+
+int m5_pack_suback(struct app_buf *buf, struct m5_suback *msg,
+		   struct m5_prop *prop)
+{
+	return m5_pack_suback_unsuback(buf, msg, prop, M5_PKT_SUBACK);
 }
 
 static int m5_unpack_suback_payload(struct app_buf *buf, struct m5_suback *msg,
@@ -2569,8 +2575,10 @@ static int m5_unpack_suback_payload(struct app_buf *buf, struct m5_suback *msg,
 	return EXIT_SUCCESS;
 }
 
-int m5_unpack_suback(struct app_buf *buf, struct m5_suback *msg,
-		     struct m5_prop *prop)
+static int m5_unpack_suback_unsuback(struct app_buf *buf,
+				     struct m5_suback *msg,
+				     struct m5_prop *prop,
+				     enum m5_pkt_type type)
 {
 	uint32_t payload_wsize;
 	uint32_t already_read;
@@ -2588,7 +2596,7 @@ int m5_unpack_suback(struct app_buf *buf, struct m5_suback *msg,
 	already_read = buf->offset;
 
 	rc = m5_unpack_u8(buf, &first);
-	if (rc != EXIT_SUCCESS || first != (M5_PKT_SUBACK << 4)) {
+	if (rc != EXIT_SUCCESS || first != (type << 4)) {
 		return -EINVAL;
 	}
 
@@ -2602,7 +2610,7 @@ int m5_unpack_suback(struct app_buf *buf, struct m5_suback *msg,
 		return rc;
 	}
 
-	rc = m5_unpack_prop(buf, prop, M5_PKT_SUBACK);
+	rc = m5_unpack_prop(buf, prop, type);
 	if (rc != EXIT_SUCCESS) {
 		return rc;
 	}
@@ -2623,6 +2631,12 @@ int m5_unpack_suback(struct app_buf *buf, struct m5_suback *msg,
 	}
 
 	return EXIT_SUCCESS;
+}
+
+int m5_unpack_suback(struct app_buf *buf, struct m5_suback *msg,
+		     struct m5_prop *prop)
+{
+	return m5_unpack_suback_unsuback(buf, msg, prop, M5_PKT_SUBACK);
 }
 
 static int m5_pack_topics(struct app_buf *buf, struct m5_topics *topics)
@@ -2752,102 +2766,16 @@ int m5_unpack_unsubscribe(struct app_buf *buf, struct m5_unsubscribe *msg)
 	return EXIT_SUCCESS;
 }
 
-int m5_pack_unsuback(struct app_buf *buf, uint16_t packet_id,
+int m5_pack_unsuback(struct app_buf *buf, struct m5_suback *msg,
 		     struct m5_prop *prop)
 {
-	uint32_t prop_wsize_wsize;
-	uint32_t full_msg_size;
-	uint32_t prop_wsize;
-	uint32_t rlen_wsize;
-	uint32_t rlen;
-	int rc;
-
-	if (buf == NULL || packet_id == 0x00) {
-		return -EINVAL;
-	}
-
-	rc = m5_prop_wsize(M5_PKT_UNSUBACK, prop, &prop_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	rc = m5_rlen_wsize(prop_wsize, &prop_wsize_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	rlen = M5_PACKET_ID_WSIZE;
-	if (prop_wsize > 0) {
-		rlen += prop_wsize_wsize + prop_wsize;
-	}
-
-	rc = m5_rlen_wsize(rlen, &rlen_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	full_msg_size = M5_PACKET_TYPE_WSIZE + rlen + rlen_wsize;
-	if (APPBUF_FREE_WRITE_SPACE(buf) < full_msg_size) {
-		return -ENOMEM;
-	}
-
-	m5_add_u8(buf, M5_PKT_UNSUBACK << 4);
-	m5_encode_int(buf, rlen);
-	m5_add_u16(buf, packet_id);
-
-	if (prop_wsize == 0) {
-		return EXIT_SUCCESS;
-	}
-
-	rc = m5_pack_prop(buf, prop, prop_wsize);
-
-	return rc;
+	return m5_pack_suback_unsuback(buf, msg, prop, M5_PKT_UNSUBACK);
 }
 
-int m5_unpack_unsuback(struct app_buf *buf, uint16_t *packet_id,
+int m5_unpack_unsuback(struct app_buf *buf, struct m5_suback *msg,
 		       struct m5_prop *prop)
 {
-	uint32_t fixed_header;
-	uint32_t already_read;
-	uint32_t rlen_wsize;
-	uint8_t first;
-	uint32_t rlen;
-	int rc;
-
-	if (buf == NULL || packet_id == NULL) {
-		return -EINVAL;
-	}
-
-	already_read = buf->offset;
-
-	rc = m5_unpack_u8(buf, &first);
-	if (rc != EXIT_SUCCESS || first != (M5_PKT_UNSUBACK << 4)) {
-		return -EINVAL;
-	}
-
-	rc = m5_decode_int(buf, &rlen, &rlen_wsize);
-	if (rc != EXIT_SUCCESS || buf->offset + rlen > buf->len) {
-		return -EINVAL;
-	}
-
-	rc = m5_unpack_u16(buf, packet_id);
-	if (rc != EXIT_SUCCESS || *packet_id == 0) {
-		return -EINVAL;
-	}
-
-	fixed_header = M5_PACKET_TYPE_WSIZE + rlen_wsize;
-	if (rlen > 2) {
-		rc = m5_unpack_prop(buf, prop, M5_PKT_UNSUBACK);
-		if (rc != EXIT_SUCCESS) {
-			return rc;
-		}
-	}
-
-	if (buf->offset - already_read != rlen + fixed_header) {
-		return -EINVAL;
-	}
-
-	return EXIT_SUCCESS;
+	return m5_unpack_suback_unsuback(buf, msg, prop, M5_PKT_UNSUBACK);
 }
 
 static int m5_pack_ping_msgs(struct app_buf *buf, enum m5_pkt_type pkt_type)

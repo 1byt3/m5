@@ -894,13 +894,22 @@ static void test_m5_unsuback(void)
 {
 	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
 			       .size = sizeof(data)};
+	uint8_t reason_code[] = {M5_QoS0, M5_QoS1, M5_QoS2};
+	uint8_t reason_code_read[3];
 	struct m5_prop prop2 = { 0 };
 	struct m5_prop prop = { 0 };
+	struct m5_suback msg = { 0 };
+	struct m5_suback msg2 = { .rc_size = 3, .rc = reason_code_read };
 	uint16_t pkt_id = 0x1234;
 	int rc;
 	int i;
 
 	TEST_HDR(__func__);
+
+	msg.packet_id = pkt_id;
+	msg.rc = reason_code;
+	msg.rc_items = 3;
+	msg.rc_size = 3;
 
 	m5_prop_reason_str(&prop, (uint8_t *)"reason", 6);
 	for (i = 0; i < M5_USER_PROP_SIZE; i++) {
@@ -912,7 +921,7 @@ static void test_m5_unsuback(void)
 		}
 	}
 
-	rc = m5_pack_unsuback(&buf, pkt_id, &prop);
+	rc = m5_pack_unsuback(&buf, &msg, &prop);
 	if (rc != EXIT_SUCCESS) {
 		DBG("m5_pack_unsuback");
 		exit(1);
@@ -923,7 +932,7 @@ static void test_m5_unsuback(void)
 	print_prop(&prop);
 
 	buf.offset = 0;
-	rc = m5_unpack_unsuback(&buf, &pkt_id, &prop2);
+	rc = m5_unpack_unsuback(&buf, &msg2, &prop2);
 	if (rc != EXIT_SUCCESS) {
 		DBG("m5_unpack_unsuback");
 		exit(1);
