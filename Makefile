@@ -1,4 +1,9 @@
-CFLAGS = -Werror -Wno-missing-field-initializers -Wno-missing-braces -Wmissing-prototypes -Wall -Wextra -Werror -O0 -g -DM5_USER_PROP_SIZE=2
+CFLAGS =				\
+	-Wall -Wextra -Werror		\
+	-Wno-missing-field-initializers	\
+	-Wno-missing-braces		\
+	-Wmissing-prototypes		\
+	-O0 -g -DM5_USER_PROP_SIZE=2
 
 TARGET = bin/test_m5
 
@@ -11,7 +16,7 @@ $(TARGET): src/m5.c src/test_m5.c src/m5.h
 	mkdir -p bin
 	$(CC) $(CFLAGS) -Isrc src/test_m5.c -o $(TARGET)
 
-test: $(TARGET)
+tests: $(TARGET)
 	valgrind -q --leak-check=full --error-exitcode=1 $(TARGET) || exit 1;
 
 clean:
