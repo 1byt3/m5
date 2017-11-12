@@ -2899,8 +2899,10 @@ int m5_unpack_pingresp(struct app_buf *buf)
 	return m5_unpack_ping_msgs(buf, M5_PKT_PINGRESP);
 }
 
-int m5_pack_disconnect(struct app_buf *buf, uint8_t reason_code,
-		       struct m5_prop *prop)
+static int m5_pack_disconnect_auth(struct app_buf *buf,
+				   uint8_t reason_code,
+				   struct m5_prop *prop,
+				   enum m5_pkt_type type)
 {
 	uint32_t prop_wsize_wsize;
 	uint32_t rlen_wsize = 0;
@@ -2913,7 +2915,7 @@ int m5_pack_disconnect(struct app_buf *buf, uint8_t reason_code,
 		return -EINVAL;
 	}
 
-	rc = m5_prop_wsize(M5_PKT_DISCONNECT, prop, &prop_wsize);
+	rc = m5_prop_wsize(type, prop, &prop_wsize);
 	if (rc != EXIT_SUCCESS) {
 		return rc;
 	}
@@ -2924,12 +2926,12 @@ int m5_pack_disconnect(struct app_buf *buf, uint8_t reason_code,
 	}
 
 	rlen = 0;
-	if (reason_code != M5_RC_SUCCESS) {
-		rlen += 1;
-	}
-
 	if (prop_wsize > 0) {
 		rlen += prop_wsize_wsize + prop_wsize;
+	}
+
+	if (rlen > 0 || reason_code != M5_RC_SUCCESS) {
+		rlen += 1;
 	}
 
 	if (rlen > 0) {
@@ -2944,18 +2946,27 @@ int m5_pack_disconnect(struct app_buf *buf, uint8_t reason_code,
 		return -ENOMEM;
 	}
 
-	m5_add_u8(buf, M5_PKT_DISCONNECT << 4);
+	m5_add_u8(buf, type << 4);
 	m5_encode_int(buf, rlen);
 
 	if (rlen > 0) {
 		m5_add_u8(buf, reason_code);
-		rc = m5_pack_prop(buf, prop, prop_wsize);
-		if (rc != EXIT_SUCCESS) {
-			return rc;
+
+		if (rlen > 1) {
+			rc = m5_pack_prop(buf, prop, prop_wsize);
+			if (rc != EXIT_SUCCESS) {
+				return rc;
+			}
 		}
 	}
 
 	return EXIT_SUCCESS;
+}
+int m5_pack_disconnect(struct app_buf *buf, uint8_t reason_code,
+		       struct m5_prop *prop)
+{
+	return m5_pack_disconnect_auth(buf, reason_code, prop,
+				       M5_PKT_DISCONNECT);
 }
 
 static int m5_unpack_disconnect_auth(struct app_buf *buf, uint8_t *reason_code,
@@ -3020,47 +3031,10 @@ int m5_unpack_disconnect(struct app_buf *buf, uint8_t *reason_code,
 					 M5_PKT_DISCONNECT);
 }
 
-int m5_pack_auth(struct app_buf *buf, uint8_t rcode, struct m5_prop *prop)
+int m5_pack_auth(struct app_buf *buf, uint8_t reason_code,
+		 struct m5_prop *prop)
 {
-	uint32_t prop_wsize_wsize;
-	uint32_t rlen_wsize = 0;
-	uint32_t full_msg_size;
-	uint32_t prop_wsize;
-
-	uint32_t rlen;
-	int rc;
-
-	if (buf == NULL) {
-		return -EINVAL;
-	}
-
-	rc = m5_prop_wsize(M5_PKT_AUTH, prop, &prop_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	rc = m5_rlen_wsize(prop_wsize, &prop_wsize_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	rlen = 1 + prop_wsize_wsize + prop_wsize;
-	rc = m5_rlen_wsize(rlen, &rlen_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	full_msg_size = M5_PACKET_TYPE_WSIZE + rlen + rlen_wsize;
-	if (APPBUF_FREE_WRITE_SPACE(buf) < full_msg_size) {
-		return -ENOMEM;
-	}
-
-	m5_add_u8(buf, M5_PKT_AUTH << 4);
-	m5_encode_int(buf, rlen);
-	m5_add_u8(buf, rcode);
-	rc = m5_pack_prop(buf, prop, prop_wsize);
-
-	return rc;
+	return m5_pack_disconnect_auth(buf, reason_code, prop, M5_PKT_AUTH);
 }
 
 int m5_unpack_auth(struct app_buf *buf, uint8_t *reason_code,
