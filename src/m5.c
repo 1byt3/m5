@@ -3047,7 +3047,7 @@ int m5_pack_auth(struct app_buf *buf, uint8_t rcode, struct m5_prop *prop)
 		return -ENOMEM;
 	}
 
-	m5_add_u8(buf, M5_PKT_AUTH << 4 | 0x01);
+	m5_add_u8(buf, M5_PKT_AUTH << 4);
 	m5_encode_int(buf, rlen);
 	m5_add_u8(buf, rcode);
 	rc = m5_pack_prop(buf, prop, prop_wsize);
@@ -3058,7 +3058,6 @@ int m5_pack_auth(struct app_buf *buf, uint8_t rcode, struct m5_prop *prop)
 int m5_unpack_auth(struct app_buf *buf, uint8_t *rcode,
 		   struct m5_prop *prop)
 {
-	const uint8_t auth_first_byte = (M5_PKT_AUTH << 4) | 0x01;
 	uint32_t fixed_header;
 	uint32_t already_read;
 	uint32_t rlen_wsize;
@@ -3073,7 +3072,7 @@ int m5_unpack_auth(struct app_buf *buf, uint8_t *rcode,
 	already_read = buf->offset;
 
 	rc = m5_unpack_u8(buf, &first);
-	if (rc != EXIT_SUCCESS || first != auth_first_byte) {
+	if (rc != EXIT_SUCCESS || first != (M5_PKT_AUTH << 4)) {
 		return -EINVAL;
 	}
 
