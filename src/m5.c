@@ -2958,13 +2958,14 @@ int m5_pack_disconnect(struct app_buf *buf, uint8_t reason_code,
 	return EXIT_SUCCESS;
 }
 
-int m5_unpack_disconnect(struct app_buf *buf, uint8_t *reason_code,
-			 struct m5_prop *prop)
+static int m5_unpack_disconnect_auth(struct app_buf *buf, uint8_t *reason_code,
+				     struct m5_prop *prop,
+				     enum m5_pkt_type type)
 {
 	uint32_t fixed_header;
 	uint32_t already_read;
 	uint32_t rlen_wsize;
-	uint8_t first;
+	uint8_t number;
 	uint32_t rlen;
 	int rc;
 
@@ -2974,8 +2975,8 @@ int m5_unpack_disconnect(struct app_buf *buf, uint8_t *reason_code,
 
 	already_read = buf->offset;
 
-	rc = m5_unpack_u8(buf, &first);
-	if (rc != EXIT_SUCCESS || first != (M5_PKT_DISCONNECT << 4)) {
+	rc = m5_unpack_u8(buf, &number);
+	if (rc != EXIT_SUCCESS || number != (type << 4)) {
 		return -EINVAL;
 	}
 
@@ -2990,15 +2991,15 @@ int m5_unpack_disconnect(struct app_buf *buf, uint8_t *reason_code,
 		return EXIT_SUCCESS;
 	}
 
-	rc = m5_unpack_u8(buf, &first);
+	rc = m5_unpack_u8(buf, &number);
 	if (rc != EXIT_SUCCESS) {
 		return -EINVAL;
 	}
 
-	*reason_code = first;
+	*reason_code = number;
 
 	if (rlen > 1) {
-		rc = m5_unpack_prop(buf, prop, M5_PKT_DISCONNECT);
+		rc = m5_unpack_prop(buf, prop, type);
 		if (rc != EXIT_SUCCESS) {
 			return rc;
 		}
@@ -3010,6 +3011,13 @@ int m5_unpack_disconnect(struct app_buf *buf, uint8_t *reason_code,
 	}
 
 	return EXIT_SUCCESS;
+}
+
+int m5_unpack_disconnect(struct app_buf *buf, uint8_t *reason_code,
+			 struct m5_prop *prop)
+{
+	return m5_unpack_disconnect_auth(buf, reason_code, prop,
+					 M5_PKT_DISCONNECT);
 }
 
 int m5_pack_auth(struct app_buf *buf, uint8_t rcode, struct m5_prop *prop)
@@ -3055,46 +3063,9 @@ int m5_pack_auth(struct app_buf *buf, uint8_t rcode, struct m5_prop *prop)
 	return rc;
 }
 
-int m5_unpack_auth(struct app_buf *buf, uint8_t *rcode,
+int m5_unpack_auth(struct app_buf *buf, uint8_t *reason_code,
 		   struct m5_prop *prop)
 {
-	uint32_t fixed_header;
-	uint32_t already_read;
-	uint32_t rlen_wsize;
-	uint8_t first;
-	uint32_t rlen;
-	int rc;
-
-	if (buf == NULL || rcode == NULL) {
-		return -EINVAL;
-	}
-
-	already_read = buf->offset;
-
-	rc = m5_unpack_u8(buf, &first);
-	if (rc != EXIT_SUCCESS || first != (M5_PKT_AUTH << 4)) {
-		return -EINVAL;
-	}
-
-	rc = m5_decode_int(buf, &rlen, &rlen_wsize);
-	if (rc != EXIT_SUCCESS || buf->offset + rlen > buf->len) {
-		return -EINVAL;
-	}
-
-	rc = m5_unpack_u8(buf, rcode);
-	if (rc != EXIT_SUCCESS) {
-		return -EINVAL;
-	}
-
-	rc = m5_unpack_prop(buf, prop, M5_PKT_AUTH);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	fixed_header = M5_PACKET_TYPE_WSIZE + rlen_wsize;
-	if (buf->offset - already_read != rlen + fixed_header) {
-		return -EINVAL;
-	}
-
-	return EXIT_SUCCESS;
+	return m5_unpack_disconnect_auth(buf, reason_code, prop, M5_PKT_AUTH);
 }
+
