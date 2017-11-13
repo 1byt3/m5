@@ -349,13 +349,13 @@ static void m5_str_add(struct app_buf *buf, const char *str)
 	m5_add_binary(buf, (uint8_t *)str, strlen(str));
 }
 
-/* Recovers a 2 byte integer in data. Integers are stored in Network order */
+/* Recovers a 2 byte integer in Network order */
 static uint16_t m5_u16(uint8_t *data)
 {
 	return (data[0] << 8) + data[1];
 }
 
-/* Recovers a 4 byte integer in data. Integers are stored in Network order */
+/* Recovers a 4 byte integer in Network order */
 static uint32_t m5_u32(uint8_t *data)
 {
 	return (data[0] << 24) + (data[1] << 16) + (data[2] << 8) + data[3];
