@@ -1920,8 +1920,10 @@ static int m5_publish_flags(struct m5_publish *msg, uint8_t *flags)
 		return -EINVAL;
 	}
 
-	*flags = (M5_PKT_PUBLISH << 4) | (msg->dup << 3) | (msg->qos << 1) |
-		 (msg->retain);
+	*flags = (M5_PKT_PUBLISH << 4);
+	*flags |= (msg->dup << 3);
+	*flags |= (msg->qos << 1);
+	*flags |= (msg->retain);
 
 	return EXIT_SUCCESS;
 }
