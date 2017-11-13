@@ -1958,6 +1958,10 @@ int m5_pack_publish(struct app_buf *buf, struct m5_publish *msg,
 		return rc;
 	}
 
+	if (msg->packet_id == 0x00) {
+		return -EINVAL;
+	}
+
 	rc = m5_prop_wsize(M5_PKT_PUBLISH, prop, &prop_wsize);
 	if (rc != EXIT_SUCCESS) {
 		return rc;
