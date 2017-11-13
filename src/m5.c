@@ -2182,7 +2182,7 @@ int m5_pack_pubrel(struct app_buf *buf, struct m5_pub_response *msg,
 }
 
 int m5_pack_pubcomp(struct app_buf *buf, struct m5_pub_response *msg,
-		   struct m5_prop *prop)
+		    struct m5_prop *prop)
 {
 	return m5_pack_pub_msgs(buf, msg, prop, M5_PKT_PUBCOMP);
 }
@@ -2700,8 +2700,7 @@ static int m5_unpack_topics(struct app_buf *buf, struct m5_topics *topics,
 			return -ENOMEM;
 		}
 
-		rc = m5_unpack_binary(buf, &topics->topics[i],
-				       &topics->len[i]);
+		rc = m5_unpack_binary(buf, &topics->topics[i], &topics->len[i]);
 		if (rc != EXIT_SUCCESS) {
 			return rc;
 		}
