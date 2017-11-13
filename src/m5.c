@@ -1953,6 +1953,11 @@ int m5_pack_publish(struct app_buf *buf, struct m5_publish *msg,
 		return -EINVAL;
 	}
 
+	rc = m5_publish_flags(msg, &flags);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
 	rc = m5_prop_wsize(M5_PKT_PUBLISH, prop, &prop_wsize);
 	if (rc != EXIT_SUCCESS) {
 		return rc;
@@ -1977,11 +1982,6 @@ int m5_pack_publish(struct app_buf *buf, struct m5_publish *msg,
 	full_msg_size = M5_PACKET_TYPE_WSIZE + rlen + rlen_wsize;
 	if (APPBUF_FREE_WRITE_SPACE(buf) < full_msg_size) {
 		return -ENOMEM;
-	}
-
-	rc = m5_publish_flags(msg, &flags);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
 	}
 
 	m5_add_u8(buf, flags);
