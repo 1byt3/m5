@@ -2322,44 +2322,6 @@ static int m5_pack_topics(struct app_buf *buf, struct m5_topics *topics)
 	return EXIT_SUCCESS;
 }
 
-int m5_pack_unsubscribe(struct app_buf *buf, struct m5_unsubscribe *msg)
-{
-	uint32_t payload_wsize;
-	uint32_t full_msg_size;
-	uint32_t rlen_wsize;
-	uint32_t rlen;
-	int rc;
-
-	if (buf == NULL || msg == NULL || msg->packet_id == 0x00 ||
-	    msg->topics.items == 0) {
-		return -EINVAL;
-	}
-
-	rc = m5_topics_wsize(&msg->topics, &payload_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	rlen = M5_PACKET_ID_WSIZE + payload_wsize;
-	rc = m5_rlen_wsize(rlen, &rlen_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	full_msg_size = M5_PACKET_TYPE_WSIZE + rlen + rlen_wsize;
-	if (APPBUF_FREE_WRITE_SPACE(buf) < full_msg_size) {
-		return -ENOMEM;
-	}
-
-	m5_add_u8(buf, (M5_PKT_UNSUBSCRIBE << 4 | 0x02));
-	m5_encode_int(buf, rlen);
-	m5_add_u16(buf, msg->packet_id);
-
-	rc = m5_pack_topics(buf, &msg->topics);
-
-	return rc;
-}
-
 static int m5_unpack_topics(struct app_buf *buf, struct m5_topics *topics,
 			    uint32_t payload_wsize)
 {
@@ -2983,6 +2945,52 @@ static int m5_pack_suback_unsuback(struct app_buf *buf, struct m5_suback *msg,
 	}
 
 	return pack(buf, &pack_info, msg, prop);
+}
+
+static int pack_unsubscribe_var_hdr(struct app_buf *buf, void *data,
+				    struct m5_prop *prop,
+				    uint32_t prop_wsize)
+{
+	struct m5_unsubscribe *msg = (struct m5_unsubscribe *)data;
+
+	(void)prop_wsize;
+	(void)prop;
+
+	m5_add_u16(buf, msg->packet_id);
+
+	return EXIT_SUCCESS;
+}
+
+static int pack_unsubscribe_payload(struct app_buf *buf, void *data)
+{
+	struct m5_unsubscribe *msg = (struct m5_unsubscribe *)data;
+
+	return m5_pack_topics(buf, &msg->topics);
+}
+
+int m5_pack_unsubscribe(struct app_buf *buf, struct m5_unsubscribe *msg)
+{
+	struct pack_info pack_info = {
+		.pkt_type = M5_PKT_UNSUBSCRIBE,
+		.fixed_hdr_reserved = 0x02,
+		.has_properties = 0,
+		.var_hdr_size = 2,
+		.fixed_hdr = pack_fixed_hdr,
+		.var_hdr = pack_unsubscribe_var_hdr,
+		.payload = pack_unsubscribe_payload,
+	};
+	int rc;
+
+	if (msg->packet_id == 0x00 || msg->topics.items == 0) {
+		return -EINVAL;
+	}
+
+	rc = m5_topics_wsize(&msg->topics, &pack_info.payload_size);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	return pack(buf, &pack_info, msg, NULL);
 }
 
 
