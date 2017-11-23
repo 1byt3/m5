@@ -1438,69 +1438,6 @@ static int m5_pack_connect_payload(struct app_buf *buf, struct m5_connect *msg)
 	return EXIT_SUCCESS;
 }
 
-int m5_pack_connect(struct app_buf *buf, struct m5_connect *msg,
-		    struct m5_prop *prop)
-{
-	uint32_t prop_wsize_wsize;
-	uint32_t payload_wsize;
-	uint32_t full_msg_size;
-	uint32_t prop_wsize;
-	uint32_t rlen_wsize;
-	uint32_t rlen;
-	uint8_t flags;
-	int rc;
-
-	if (buf == NULL || msg == NULL) {
-		return -EINVAL;
-	}
-
-	rc = m5_prop_wsize(M5_PKT_CONNECT, prop, &prop_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	rc = m5_rlen_wsize(prop_wsize, &prop_wsize_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	rc = m5_connect_payload_wsize(msg, &payload_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	rlen = M5_PROTO_NAME_LEN + 1 + 1 + 2 +
-	       prop_wsize_wsize + prop_wsize + payload_wsize;
-
-	rc = m5_rlen_wsize(rlen, &rlen_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	full_msg_size = M5_PACKET_TYPE_WSIZE + rlen + rlen_wsize;
-	if (APPBUF_FREE_WRITE_SPACE(buf) < full_msg_size) {
-		return -ENOMEM;
-	}
-
-	m5_connect_compute_flags(msg, &flags);
-
-	m5_add_u8(buf, M5_PKT_CONNECT << 4);
-	m5_encode_int(buf, rlen);
-	m5_str_add(buf, M5_PROTO_STR);
-	m5_add_u8(buf, M5_PROTO_VERSION5);
-	m5_add_u8(buf, flags);
-	m5_add_u16(buf, msg->keep_alive);
-
-	rc = m5_pack_prop(buf, prop, prop_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	rc = m5_pack_connect_payload(buf, msg);
-
-	return rc;
-}
-
 static int m5_unpack_prop_id(struct app_buf *buf, uint8_t *id)
 {
 	if (APPBUF_FREE_READ_SPACE(buf) < PROP_ID_BYTE_WSIZE) {
@@ -2895,6 +2832,7 @@ static int m5_pack_disconnect_auth(struct app_buf *buf,
 
 	return EXIT_SUCCESS;
 }
+
 int m5_pack_disconnect(struct app_buf *buf, uint8_t reason_code,
 		       struct m5_prop *prop)
 {
@@ -2975,4 +2913,144 @@ int m5_unpack_auth(struct app_buf *buf, uint8_t *reason_code,
 {
 	return m5_unpack_disconnect_auth(buf, reason_code, prop, M5_PKT_AUTH);
 }
+
+struct pack_info {
+	int (*fixed_hdr)(struct app_buf *, enum m5_pkt_type, uint8_t);
+	int (*var_hdr)(struct app_buf *, void *, struct m5_prop *, uint32_t);
+	int (*payload)(struct app_buf *, void *data);
+
+	uint32_t var_hdr_size;
+	uint32_t payload_size;
+
+	enum m5_pkt_type pkt_type;
+	uint8_t fixed_hdr_reserved;
+	uint8_t has_properties;
+};
+
+static int pack_fixed_hdr(struct app_buf *buf, enum m5_pkt_type type,
+			  uint8_t reserved)
+{
+	m5_add_u8(buf, ((uint8_t)type << 4) | (reserved & 0x0F));
+
+	return EXIT_SUCCESS;
+}
+
+static int pack(struct app_buf *buf, struct pack_info *pack_info,
+		void *msg, struct m5_prop *prop)
+{
+	uint32_t prop_wsize_wsize;
+	uint32_t full_msg_size;
+	uint32_t prop_wsize;
+	uint32_t rlen_wsize;
+	uint32_t rlen;
+	int rc;
+
+	if (buf == NULL) {
+		return -EINVAL;
+	}
+
+	if (pack_info->has_properties != 0) {
+		rc = m5_prop_wsize(pack_info->pkt_type, prop, &prop_wsize);
+		if (rc != EXIT_SUCCESS) {
+			return rc;
+		}
+
+		rc = m5_rlen_wsize(prop_wsize, &prop_wsize_wsize);
+		if (rc != EXIT_SUCCESS) {
+			return rc;
+		}
+	}
+
+	rlen = pack_info->var_hdr_size + pack_info->payload_size;
+	if (pack_info->has_properties != 0) {
+		rlen += prop_wsize_wsize + prop_wsize;
+	}
+
+	rc = m5_rlen_wsize(rlen, &rlen_wsize);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	full_msg_size = M5_PACKET_TYPE_WSIZE + rlen + rlen_wsize;
+	if (APPBUF_FREE_WRITE_SPACE(buf) < full_msg_size) {
+		return -ENOMEM;
+	}
+
+	rc = pack_info->fixed_hdr(buf,
+				  pack_info->pkt_type,
+				  pack_info->fixed_hdr_reserved);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	m5_encode_int(buf, rlen);
+
+	if (pack_info->var_hdr != NULL) {
+		rc = pack_info->var_hdr(buf, msg, prop, prop_wsize);
+		if (rc != EXIT_SUCCESS) {
+			return rc;
+		}
+	}
+
+	if (pack_info->payload != NULL) {
+		rc = pack_info->payload(buf, msg);
+		if (rc != EXIT_SUCCESS) {
+			return rc;
+		}
+	}
+
+	return EXIT_SUCCESS;
+}
+
+static int pack_connect_var_hdr(struct app_buf *buf, void *data,
+				struct m5_prop *prop, uint32_t prop_wsize)
+{
+	struct m5_connect *msg = (struct m5_connect *)data;
+	uint8_t flags;
+	int rc;
+
+	m5_connect_compute_flags(msg, &flags);
+	m5_str_add(buf, M5_PROTO_STR);
+	m5_add_u8(buf, M5_PROTO_VERSION5);
+	m5_add_u8(buf, flags);
+	m5_add_u16(buf, msg->keep_alive);
+
+	rc = m5_pack_prop(buf, prop, prop_wsize);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	return EXIT_SUCCESS;
+}
+
+static int pack_connect_payload(struct app_buf *buf, void *data)
+{
+	struct m5_connect *msg = (struct m5_connect *)data;
+
+	return m5_pack_connect_payload(buf, msg);
+}
+
+int m5_pack_connect(struct app_buf *buf, struct m5_connect *msg,
+		    struct m5_prop *prop)
+{
+	struct pack_info pack_info = {
+		.pkt_type = M5_PKT_CONNECT,
+		.fixed_hdr_reserved = 0x00,
+		.has_properties = 1,
+		.var_hdr_size = 10,
+		.payload_size = 0,
+		.fixed_hdr = pack_fixed_hdr,
+		.var_hdr = pack_connect_var_hdr,
+		.payload = pack_connect_payload,
+	};
+	int rc;
+
+	rc = m5_connect_payload_wsize(msg, &pack_info.payload_size);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	return pack(buf, &pack_info, msg, prop);
+}
+
 
