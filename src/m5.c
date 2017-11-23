@@ -2211,58 +2211,7 @@ static int m5_pack_suback_payload(struct app_buf *buf, struct m5_suback *msg)
 }
 
 static int m5_pack_suback_unsuback(struct app_buf *buf, struct m5_suback *msg,
-				   struct m5_prop *prop, enum m5_pkt_type type)
-{
-	uint32_t prop_wsize_wsize;
-	uint32_t payload_wsize;
-	uint32_t full_msg_size;
-	uint32_t prop_wsize;
-	uint32_t rlen_wsize;
-	uint32_t rlen;
-	int rc;
-
-	if (buf == NULL || msg == NULL || msg->packet_id == 0x00 ||
-					  msg->rc_items == 0) {
-		return -EINVAL;
-	}
-
-	rc = m5_prop_wsize(type, prop, &prop_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	rc = m5_rlen_wsize(prop_wsize, &prop_wsize_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	payload_wsize = msg->rc_items;
-
-	rlen = M5_PACKET_ID_WSIZE + prop_wsize_wsize + prop_wsize +
-	       payload_wsize;
-	rc = m5_rlen_wsize(rlen, &rlen_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	full_msg_size = M5_PACKET_TYPE_WSIZE + rlen + rlen_wsize;
-	if (APPBUF_FREE_WRITE_SPACE(buf) < full_msg_size) {
-		return -ENOMEM;
-	}
-
-	m5_add_u8(buf, type << 4);
-	m5_encode_int(buf, rlen);
-	m5_add_u16(buf, msg->packet_id);
-
-	rc = m5_pack_prop(buf, prop, prop_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	rc = m5_pack_suback_payload(buf, msg);
-
-	return rc;
-}
+				   struct m5_prop *prop, enum m5_pkt_type type);
 
 int m5_pack_suback(struct app_buf *buf, struct m5_suback *msg,
 		   struct m5_prop *prop)
@@ -2996,4 +2945,44 @@ int m5_pack_subscribe(struct app_buf *buf, struct m5_subscribe *msg,
 
 	return pack(buf, &pack_info, msg, prop);
 }
+
+static int pack_suback_unsuback_var_hdr(struct app_buf *buf, void *data,
+					struct m5_prop *prop,
+					uint32_t prop_wsize)
+{
+	struct m5_suback *msg = (struct m5_suback *)data;
+
+	m5_add_u16(buf, msg->packet_id);
+
+	return m5_pack_prop(buf, prop, prop_wsize);
+}
+
+static int pack_suback_unsuback_payload(struct app_buf *buf, void *data)
+{
+	struct m5_suback *msg = (struct m5_suback *)data;
+
+	return m5_pack_suback_payload(buf, msg);
+}
+
+static int m5_pack_suback_unsuback(struct app_buf *buf, struct m5_suback *msg,
+				   struct m5_prop *prop, enum m5_pkt_type type)
+{
+	struct pack_info pack_info = {
+		.pkt_type = type,
+		.fixed_hdr_reserved = 0x00,
+		.has_properties = 1,
+		.var_hdr_size = 2,
+		.payload_size = msg->rc_items,
+		.fixed_hdr = pack_fixed_hdr,
+		.var_hdr = pack_suback_unsuback_var_hdr,
+		.payload = pack_suback_unsuback_payload,
+	};
+
+	if (msg->packet_id == 0 || msg->rc_items == 0) {
+		return -EINVAL;
+	}
+
+	return pack(buf, &pack_info, msg, prop);
+}
+
 
