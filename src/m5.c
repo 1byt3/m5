@@ -1756,52 +1756,6 @@ int m5_unpack_connect(struct app_buf *buf, struct m5_connect *msg,
 	return EXIT_SUCCESS;
 }
 
-int m5_pack_connack(struct app_buf *buf, struct m5_connack *msg,
-		    struct m5_prop *prop)
-{
-	uint32_t prop_wsize_wsize;
-	uint32_t full_msg_size;
-	uint32_t prop_wsize;
-	uint32_t rlen_wsize;
-	uint32_t rlen;
-	int rc;
-
-	if (buf == NULL || msg == NULL) {
-		return -EINVAL;
-	}
-
-	rc = m5_prop_wsize(M5_PKT_CONNACK, prop, &prop_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	rc = m5_rlen_wsize(prop_wsize, &prop_wsize_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	/* 2: Connect Acknowledge Flags and Connect Reason Code */
-	rlen = 2 + prop_wsize_wsize + prop_wsize;
-	rc = m5_rlen_wsize(rlen, &rlen_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	full_msg_size = M5_PACKET_TYPE_WSIZE + rlen + rlen_wsize;
-	if (APPBUF_FREE_WRITE_SPACE(buf) < full_msg_size) {
-		return -ENOMEM;
-	}
-
-	m5_add_u8(buf, M5_PKT_CONNACK << 4);
-	m5_encode_int(buf, rlen);
-	m5_add_u8(buf, msg->session_present > 0 ? 0x01 : 0x00);
-	m5_add_u8(buf, msg->return_code);
-
-	rc = m5_pack_prop(buf, prop, prop_wsize);
-
-	return rc;
-}
-
 int m5_unpack_connack(struct app_buf *buf, struct m5_connack *msg,
 		      struct m5_prop *prop)
 {
@@ -3049,6 +3003,34 @@ int m5_pack_connect(struct app_buf *buf, struct m5_connect *msg,
 	if (rc != EXIT_SUCCESS) {
 		return rc;
 	}
+
+	return pack(buf, &pack_info, msg, prop);
+}
+
+static int pack_connack_var_hdr(struct app_buf *buf, void *data,
+				struct m5_prop *prop, uint32_t prop_wsize)
+{
+	struct m5_connack *msg = (struct m5_connack *)data;
+
+	m5_add_u8(buf, msg->session_present > 0 ? 0x01 : 0x00);
+	m5_add_u8(buf, msg->return_code);
+
+	return m5_pack_prop(buf, prop, prop_wsize);
+}
+
+int m5_pack_connack(struct app_buf *buf, struct m5_connack *msg,
+		    struct m5_prop *prop)
+{
+	struct pack_info pack_info = {
+		.pkt_type = M5_PKT_CONNACK,
+		.fixed_hdr_reserved = 0x00,
+		.has_properties = 1,
+		.var_hdr_size = 2,
+		.payload_size = 0,
+		.fixed_hdr = pack_fixed_hdr,
+		.var_hdr = pack_connack_var_hdr,
+		.payload = NULL,
+	};
 
 	return pack(buf, &pack_info, msg, prop);
 }
