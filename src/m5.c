@@ -2078,65 +2078,6 @@ static int m5_pack_subscribe_payload(struct app_buf *buf,
 	return EXIT_SUCCESS;
 }
 
-int m5_pack_subscribe(struct app_buf *buf, struct m5_subscribe *msg,
-		      struct m5_prop *prop)
-{
-	uint32_t prop_wsize_wsize;
-	uint32_t payload_wsize;
-	uint32_t full_msg_size;
-	uint32_t prop_wsize;
-	uint32_t rlen_wsize;
-	uint32_t rlen;
-	int rc;
-
-	if (buf == NULL || msg == NULL || msg->packet_id == 0) {
-		return -EINVAL;
-	}
-
-	rc = m5_prop_wsize(M5_PKT_SUBSCRIBE, prop, &prop_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	rc = m5_rlen_wsize(prop_wsize, &prop_wsize_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	rc = m5_topics_wsize(&msg->topics, &payload_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	/* add the options */
-	payload_wsize += msg->topics.items;
-
-	rlen = M5_PACKET_ID_WSIZE + prop_wsize_wsize + prop_wsize +
-	       payload_wsize;
-	rc = m5_rlen_wsize(rlen, &rlen_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	full_msg_size = M5_PACKET_TYPE_WSIZE + rlen + rlen_wsize;
-	if (APPBUF_FREE_WRITE_SPACE(buf) < full_msg_size) {
-		return -ENOMEM;
-	}
-
-	m5_add_u8(buf, (M5_PKT_SUBSCRIBE << 4) | 0x02);
-	m5_encode_int(buf, rlen);
-	m5_add_u16(buf, msg->packet_id);
-
-	rc = m5_pack_prop(buf, prop, prop_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	rc = m5_pack_subscribe_payload(buf, msg);
-
-	return rc;
-}
-
 static int m5_unpack_subscribe_payload(struct app_buf *buf,
 				       struct m5_subscribe *msg,
 				       uint32_t payload_wsize)
@@ -3006,6 +2947,52 @@ static int m5_pack_pub_msgs(struct app_buf *buf, struct m5_pub_response *msg,
 
 	pack_info.fixed_hdr_reserved =
 				(pkt_type == M5_PKT_PUBREL ? 0x02 : 0x00);
+
+	return pack(buf, &pack_info, msg, prop);
+}
+
+static int pack_subscribe_var_hdr(struct app_buf *buf, void *data,
+				  struct m5_prop *prop, uint32_t prop_wsize)
+{
+	struct m5_subscribe *msg = (struct m5_subscribe *)data;
+
+	m5_add_u16(buf, msg->packet_id);
+
+	return m5_pack_prop(buf, prop, prop_wsize);
+}
+
+static int pack_subscribe_payload(struct app_buf *buf, void *data)
+{
+	struct m5_subscribe *msg = (struct m5_subscribe *)data;
+
+	return m5_pack_subscribe_payload(buf, msg);
+}
+
+int m5_pack_subscribe(struct app_buf *buf, struct m5_subscribe *msg,
+		      struct m5_prop *prop)
+{
+	struct pack_info pack_info = {
+		.pkt_type = M5_PKT_SUBSCRIBE,
+		.fixed_hdr_reserved = 0x02,
+		.has_properties = 1,
+		.var_hdr_size = 2,
+		.fixed_hdr = pack_fixed_hdr,
+		.var_hdr = pack_subscribe_var_hdr,
+		.payload = pack_subscribe_payload,
+	};
+	int rc;
+
+	if (msg->packet_id == 0) {
+		return -EINVAL;
+	}
+
+	rc = m5_topics_wsize(&msg->topics, &pack_info.payload_size);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	/* add the options */
+	pack_info.payload_size += msg->topics.items;
 
 	return pack(buf, &pack_info, msg, prop);
 }
