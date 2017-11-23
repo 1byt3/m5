@@ -1811,8 +1811,7 @@ static int m5_publish_flags(struct m5_publish *msg, uint8_t *flags)
 		return -EINVAL;
 	}
 
-	*flags = (M5_PKT_PUBLISH << 4);
-	*flags |= (msg->dup << 3);
+	*flags = (msg->dup << 3);
 	*flags |= (msg->qos << 1);
 	*flags |= (msg->retain);
 
@@ -1828,75 +1827,6 @@ static uint32_t str_wsize(uint32_t str_len)
 {
 	return bin_wsize(str_len);
 }
-
-int m5_pack_publish(struct app_buf *buf, struct m5_publish *msg,
-		    struct m5_prop *prop)
-{
-	uint32_t prop_wsize_wsize;
-	uint32_t full_msg_size;
-	uint32_t prop_wsize;
-	uint32_t rlen_wsize;
-	uint32_t rlen;
-	uint8_t flags;
-	int rc;
-
-	if (buf == NULL || msg == NULL) {
-		return -EINVAL;
-	}
-
-	rc = m5_publish_flags(msg, &flags);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	if (msg->packet_id == 0x00) {
-		return -EINVAL;
-	}
-
-	rc = m5_prop_wsize(M5_PKT_PUBLISH, prop, &prop_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	rc = m5_rlen_wsize(prop_wsize, &prop_wsize_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	rlen = str_wsize(msg->topic_name_len) + prop_wsize_wsize + prop_wsize +
-	       msg->payload_len;
-	if (msg->qos != M5_QoS0) {
-		rlen += M5_PACKET_ID_WSIZE;
-	}
-
-	rc = m5_rlen_wsize(rlen, &rlen_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	full_msg_size = M5_PACKET_TYPE_WSIZE + rlen + rlen_wsize;
-	if (APPBUF_FREE_WRITE_SPACE(buf) < full_msg_size) {
-		return -ENOMEM;
-	}
-
-	m5_add_u8(buf, flags);
-	m5_encode_int(buf, rlen);
-
-	m5_add_binary(buf, msg->topic_name, msg->topic_name_len);
-	if (msg->qos != M5_QoS0) {
-		m5_add_u16(buf, msg->packet_id);
-	}
-
-	rc = m5_pack_prop(buf, prop, prop_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	rc = m5_pack_raw_binary(buf, msg->payload, msg->payload_len);
-
-	return rc;
-}
-
 
 static int m5_unpack_publish_flags(struct m5_publish *msg, uint8_t flags)
 {
@@ -3034,5 +2964,56 @@ int m5_pack_connack(struct app_buf *buf, struct m5_connack *msg,
 
 	return pack(buf, &pack_info, msg, prop);
 }
+
+static int pack_publish_var_hdr(struct app_buf *buf, void *data,
+				struct m5_prop *prop, uint32_t prop_wsize)
+{
+	struct m5_publish *msg = (struct m5_publish *)data;
+
+	m5_add_binary(buf, msg->topic_name, msg->topic_name_len);
+	if (msg->qos != M5_QoS0) {
+		m5_add_u16(buf, msg->packet_id);
+	}
+
+	return m5_pack_prop(buf, prop, prop_wsize);
+}
+
+static int pack_publish_payload(struct app_buf *buf, void *data)
+{
+	struct m5_publish *msg = (struct m5_publish *)data;
+
+	return m5_pack_raw_binary(buf, msg->payload, msg->payload_len);
+}
+
+int m5_pack_publish(struct app_buf *buf, struct m5_publish *msg,
+		    struct m5_prop *prop)
+{
+	struct pack_info pack_info = {
+		.pkt_type = M5_PKT_PUBLISH,
+		.has_properties = 1,
+		.payload_size = msg->payload_len,
+		.fixed_hdr = pack_fixed_hdr,
+		.var_hdr = pack_publish_var_hdr,
+		.payload = pack_publish_payload,
+	};
+	int rc;
+
+	rc = m5_publish_flags(msg, &pack_info.fixed_hdr_reserved);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	pack_info.var_hdr_size = str_wsize(msg->topic_name_len);
+	if (msg->qos != M5_QoS0) {
+		if (msg->packet_id == 0) {
+			return -EINVAL;
+		}
+
+		pack_info.var_hdr_size += M5_PACKET_ID_WSIZE;
+	}
+
+	return pack(buf, &pack_info, msg, prop);
+}
+
 
 
