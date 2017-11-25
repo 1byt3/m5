@@ -1676,55 +1676,6 @@ static int m5_unpack_connect_keep_alive(struct app_buf *buf,
 	return EXIT_SUCCESS;
 }
 
-int m5_unpack_connack(struct app_buf *buf, struct m5_connack *msg,
-		      struct m5_prop *prop)
-{
-	uint32_t rlen_wsize;
-	uint32_t fixed_header;
-	uint32_t already_read;
-	uint32_t rlen;
-	uint8_t first;
-	int rc;
-
-	if (buf == NULL || msg == NULL) {
-		return -EINVAL;
-	}
-
-	already_read = buf->offset;
-
-	rc = m5_unpack_u8(buf, &first);
-	if (rc != EXIT_SUCCESS || first != (M5_PKT_CONNACK << 4)) {
-		return -EINVAL;
-	}
-
-	rc = m5_decode_int(buf, &rlen, &rlen_wsize);
-	if (rc != EXIT_SUCCESS || buf->offset + rlen > buf->len) {
-		return -EINVAL;
-	}
-
-	rc = m5_unpack_u8(buf, &msg->session_present);
-	if (rc != EXIT_SUCCESS || msg->session_present > 0x01) {
-		return -EINVAL;
-	}
-
-	rc = m5_unpack_u8(buf, &msg->return_code);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	rc = m5_unpack_prop(buf, prop, M5_PKT_CONNACK);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	fixed_header = M5_PACKET_TYPE_WSIZE + rlen_wsize;
-	if (buf->offset - already_read != rlen + fixed_header) {
-		return -EINVAL;
-	}
-
-	return EXIT_SUCCESS;
-}
-
 static int m5_publish_flags(struct m5_publish *msg, uint8_t *flags)
 {
 	if (msg->qos >= 0x03 || msg->dup > 0x01 || msg->retain > 0x01) {
@@ -3062,3 +3013,46 @@ int m5_unpack_connect(struct app_buf *buf, struct m5_connect *msg,
 
 	return unpack(buf, &unpack_info, msg, prop);
 }
+
+static int unpack_connack_var_hdr(struct app_buf *buf,
+				  struct unpack_info *unpack_info,
+				  void *data,
+				  struct m5_prop *prop)
+{
+	struct m5_connack *msg = (struct m5_connack *)data;
+	int rc;
+
+	(void)unpack_info;
+
+	rc = m5_unpack_u8(buf, &msg->session_present);
+	if (rc != EXIT_SUCCESS || msg->session_present > 0x01) {
+		return -EINVAL;
+	}
+
+	rc = m5_unpack_u8(buf, &msg->return_code);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	rc = m5_unpack_prop(buf, prop, M5_PKT_CONNACK);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	return EXIT_SUCCESS;
+}
+
+int m5_unpack_connack(struct app_buf *buf, struct m5_connack *msg,
+		      struct m5_prop *prop)
+{
+	struct unpack_info unpack_info = {
+		.fixed_hdr = unpack_fixed_hdr,
+		.var_hdr = unpack_connack_var_hdr,
+		.payload = NULL,
+
+		.pkt_type = M5_PKT_CONNACK,
+		.fixed_hdr_reserved = 0x00 };
+
+	return unpack(buf, &unpack_info, msg, prop);
+}
+
