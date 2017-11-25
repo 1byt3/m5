@@ -214,6 +214,8 @@ struct m5_connect {
 	uint8_t will_retain;
 	uint8_t will_qos;
 	uint8_t clean_start;
+
+	uint8_t flags;
 };
 
 struct m5_connack {

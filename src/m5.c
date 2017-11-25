@@ -1544,48 +1544,6 @@ static int m5_buffer_set(uint8_t **dst, uint16_t *dst_len, struct app_buf *buf)
 	return EXIT_SUCCESS;
 }
 
-static int m5_unpack_connect_payload(struct app_buf *buf,
-				     struct m5_connect *msg,
-				     int will_msg,
-				     int username,
-				     int password)
-{
-	int  rc;
-
-	rc = m5_buffer_set(&msg->client_id, &msg->client_id_len, buf);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	if (will_msg) {
-		rc = m5_buffer_set(&msg->will_topic, &msg->will_topic_len, buf);
-		if (rc != EXIT_SUCCESS) {
-			return rc;
-		}
-
-		rc = m5_buffer_set(&msg->will_msg, &msg->will_msg_len, buf);
-		if (rc != EXIT_SUCCESS) {
-			return rc;
-		}
-	}
-
-	if (username) {
-		rc = m5_buffer_set(&msg->user_name, &msg->user_name_len, buf);
-		if (rc != EXIT_SUCCESS) {
-			return rc;
-		}
-	}
-
-	if (password) {
-		rc = m5_buffer_set(&msg->password, &msg->password_len, buf);
-		if (rc != EXIT_SUCCESS) {
-			return rc;
-		}
-	}
-
-	return EXIT_SUCCESS;
-}
-
 static int m5_unpack_proto_name(struct app_buf *buf)
 {
 	uint8_t *data = buf->data + buf->offset;
@@ -1635,31 +1593,61 @@ static int m5_connect_flags_username(uint8_t flags)
 	return (flags & (1 << 7)) ? 1 : 0;
 }
 
-static int m5_unpack_connect_flags(struct app_buf *buf, struct m5_connect *msg,
-				   int *will_msg, int *username, int *password)
+static int m5_unpack_connect_flags(struct app_buf *buf, struct m5_connect *msg)
 {
-	uint8_t flags;
-
 	if (APPBUF_FREE_READ_SPACE(buf) < M5_CONNECT_FLAGS_WSIZE) {
 		return -ENOMEM;
 	}
 
-	flags = *APPBUF_DATAPTR_CURRENT(buf);
-	if ((flags & 0x01) != 0x00) {
+	msg->flags = *APPBUF_DATAPTR_CURRENT(buf);
+	if ((msg->flags & 0x01) != 0x00) {
 		return -EINVAL;
 	}
 
-	msg->clean_start = m5_connect_flags_clean_start(flags);
-	msg->will_qos = m5_connect_flags_will_qos(flags);
-	msg->will_retain = m5_connect_flags_will_retain(flags);
-	/* The following variables are used to recover some values
-	 * from the CONNECT's payload
-	 */
-	*will_msg = m5_connect_flags_will_msg(flags);
-	*username = m5_connect_flags_username(flags);
-	*password = m5_connect_flags_password(flags);
+	msg->clean_start = m5_connect_flags_clean_start(msg->flags);
+	msg->will_qos = m5_connect_flags_will_qos(msg->flags);
+	msg->will_retain = m5_connect_flags_will_retain(msg->flags);
 
 	buf->offset += M5_CONNECT_FLAGS_WSIZE;
+
+	return EXIT_SUCCESS;
+}
+
+static int m5_unpack_connect_payload(struct app_buf *buf,
+				     struct m5_connect *msg)
+{
+	int  rc;
+
+	rc = m5_buffer_set(&msg->client_id, &msg->client_id_len, buf);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	if (m5_connect_flags_will_msg(msg->flags)) {
+		rc = m5_buffer_set(&msg->will_topic, &msg->will_topic_len, buf);
+		if (rc != EXIT_SUCCESS) {
+			return rc;
+		}
+
+		rc = m5_buffer_set(&msg->will_msg, &msg->will_msg_len, buf);
+		if (rc != EXIT_SUCCESS) {
+			return rc;
+		}
+	}
+
+	if (m5_connect_flags_username(msg->flags)) {
+		rc = m5_buffer_set(&msg->user_name, &msg->user_name_len, buf);
+		if (rc != EXIT_SUCCESS) {
+			return rc;
+		}
+	}
+
+	if (m5_connect_flags_password(msg->flags)) {
+		rc = m5_buffer_set(&msg->password, &msg->password_len, buf);
+		if (rc != EXIT_SUCCESS) {
+			return rc;
+		}
+	}
 
 	return EXIT_SUCCESS;
 }
@@ -1684,74 +1672,6 @@ static int m5_unpack_connect_keep_alive(struct app_buf *buf,
 
 	msg->keep_alive = m5_u16(buf->data + buf->offset);
 	buf->offset += M5_INT_LEN_SIZE;
-
-	return EXIT_SUCCESS;
-}
-
-int m5_unpack_connect(struct app_buf *buf, struct m5_connect *msg,
-		      struct m5_prop *prop)
-{
-	uint32_t already_read;
-	uint32_t fixed_header;
-	uint32_t rlen_wsize;
-	uint32_t rlen;
-	uint8_t first;
-	int will_msg;
-	int username;
-	int password;
-	int rc;
-
-	if (buf == NULL || msg == NULL) {
-		return -EINVAL;
-	}
-
-	already_read = buf->offset;
-
-	rc = m5_unpack_u8(buf, &first);
-	if (rc != EXIT_SUCCESS || first != (M5_PKT_CONNECT << 4)) {
-		return -EINVAL;
-	}
-
-	rc = m5_decode_int(buf, &rlen, &rlen_wsize);
-	if (rc != EXIT_SUCCESS || buf->offset + rlen > buf->len) {
-		return -EINVAL;
-	}
-
-	rc = m5_unpack_proto_name(buf);
-	if (rc != EXIT_SUCCESS)	{
-		return rc;
-	}
-
-	/* MQTT protocol version */
-	rc = m5_unpack_proto_version(buf);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	rc = m5_unpack_connect_flags(buf, msg, &will_msg, &username, &password);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	rc = m5_unpack_connect_keep_alive(buf, msg);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	rc = m5_unpack_prop(buf, prop, M5_PKT_CONNECT);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	rc = m5_unpack_connect_payload(buf, msg, will_msg, username, password);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	fixed_header = M5_PACKET_TYPE_WSIZE + rlen_wsize;
-	if (buf->offset - already_read != rlen + fixed_header) {
-		return -EINVAL;
-	}
 
 	return EXIT_SUCCESS;
 }
@@ -1903,7 +1823,6 @@ int m5_unpack_publish(struct app_buf *buf, struct m5_publish *msg,
 
 	return EXIT_SUCCESS;
 }
-
 
 static int m5_pub_reason_code(enum m5_pkt_type pkt_type, uint8_t reason_code)
 {
@@ -2993,4 +2912,153 @@ int m5_pack_unsubscribe(struct app_buf *buf, struct m5_unsubscribe *msg)
 	return pack(buf, &pack_info, msg, NULL);
 }
 
+struct unpack_info {
+	int (*fixed_hdr)(struct app_buf *, struct unpack_info *, void *data);
+	int (*var_hdr)(struct app_buf *, struct unpack_info *,
+		       void *data, struct m5_prop *);
+	int (*payload)(struct app_buf *, struct unpack_info *, void *data);
 
+	uint8_t fixed_hdr_reserved;
+	enum m5_pkt_type pkt_type;
+	uint32_t payload_size;
+};
+
+static int unpack(struct app_buf *buf, struct unpack_info *unpack_info,
+		  void *msg, struct m5_prop *prop)
+{
+	uint32_t full_packet_size;
+	uint32_t already_read;
+	uint32_t rlen_wsize;
+	uint32_t rlen;
+	int rc;
+
+	if (buf == NULL || msg == NULL) {
+		return -EINVAL;
+	}
+
+	already_read = buf->offset;
+
+	rc = unpack_info->fixed_hdr(buf, unpack_info, msg);
+	if (rc != EXIT_SUCCESS) {
+		return -EINVAL;
+	}
+
+	rc = m5_decode_int(buf, &rlen, &rlen_wsize);
+	if (rc != EXIT_SUCCESS) {
+		return -EINVAL;
+	}
+
+	if (APPBUF_FREE_READ_SPACE(buf) < rlen) {
+		return -ENOMEM;
+	}
+
+	if (unpack_info->var_hdr != NULL) {
+		rc = unpack_info->var_hdr(buf, unpack_info, msg, prop);
+		if (rc != EXIT_SUCCESS) {
+			return rc;
+		}
+	}
+
+	full_packet_size = M5_PACKET_TYPE_WSIZE + rlen + rlen_wsize;
+
+	if (unpack_info->payload != NULL) {
+		unpack_info->payload_size = full_packet_size -
+					    (buf->offset - already_read);
+		rc = unpack_info->payload(buf, unpack_info, msg);
+		if (rc != EXIT_SUCCESS) {
+			return rc;
+		}
+	}
+
+	if (buf->offset - already_read != full_packet_size) {
+		return -EINVAL;
+	}
+
+	return EXIT_SUCCESS;
+}
+
+static int unpack_fixed_hdr(struct app_buf *buf,
+			    struct unpack_info *unpack_info,
+			    void *data)
+{
+	uint8_t first;
+	int rc;
+
+	(void)data;
+
+	rc = m5_unpack_u8(buf, &first);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	if ((first >> 4) != unpack_info->pkt_type ||
+	    ((first & 0x0F) != (unpack_info->fixed_hdr_reserved & 0x0F))) {
+		return -EINVAL;
+	}
+
+	return EXIT_SUCCESS;
+}
+
+static int unpack_connect_var_hdr(struct app_buf *buf,
+				  struct unpack_info *unpack_info,
+				  void *data,
+				  struct m5_prop *prop)
+{
+	struct m5_connect *msg = (struct m5_connect *)data;
+	int rc;
+
+	(void)unpack_info;
+
+	rc = m5_unpack_proto_name(buf);
+	if (rc != EXIT_SUCCESS)	{
+		return rc;
+	}
+
+	/* MQTT protocol version */
+	rc = m5_unpack_proto_version(buf);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	rc = m5_unpack_connect_flags(buf, msg);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	rc = m5_unpack_connect_keep_alive(buf, msg);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	rc = m5_unpack_prop(buf, prop, M5_PKT_CONNECT);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	return EXIT_SUCCESS;
+}
+
+static int unpack_connect_payload(struct app_buf *buf,
+				  struct unpack_info *unpack_info,
+				  void *data)
+{
+	struct m5_connect *msg = (struct m5_connect *)data;
+
+	(void)unpack_info;
+
+	return m5_unpack_connect_payload(buf, msg);
+}
+
+int m5_unpack_connect(struct app_buf *buf, struct m5_connect *msg,
+		      struct m5_prop *prop)
+{
+	struct unpack_info unpack_info = {
+		.fixed_hdr = unpack_fixed_hdr,
+		.var_hdr = unpack_connect_var_hdr,
+		.payload = unpack_connect_payload,
+
+		.pkt_type = M5_PKT_CONNECT,
+		.fixed_hdr_reserved = 0x00 };
+
+	return unpack(buf, &unpack_info, msg, prop);
+}
