@@ -1775,54 +1775,7 @@ int m5_pack_pubcomp(struct app_buf *buf, struct m5_pub_response *msg,
 }
 
 static int m5_unpack_pub_msgs(struct app_buf *buf, struct m5_pub_response *msg,
-			      struct m5_prop *prop, enum m5_pkt_type pkt_type)
-{
-	uint8_t recovered_pkt_type;
-	uint32_t fixed_header;
-	uint32_t already_read;
-	uint32_t rlen_wsize;
-	uint32_t rlen;
-
-	int rc;
-
-	if (buf == NULL || msg == NULL) {
-		return -EINVAL;
-	}
-
-	already_read = buf->offset;
-
-	rc = m5_unpack_u8(buf, &recovered_pkt_type);
-	if (rc != EXIT_SUCCESS || recovered_pkt_type != (pkt_type << 4)) {
-		return -EINVAL;
-	}
-
-	rc = m5_decode_int(buf, &rlen, &rlen_wsize);
-	if (rc != EXIT_SUCCESS || buf->offset + rlen > buf->len) {
-		return -EINVAL;
-	}
-
-	rc = m5_unpack_u16(buf, &msg->packet_id);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	rc = m5_unpack_u8(buf, &msg->reason_code);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	rc = m5_unpack_prop(buf, prop, pkt_type);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	fixed_header = M5_PACKET_TYPE_WSIZE + rlen_wsize;
-	if (buf->offset - already_read != rlen + fixed_header) {
-		return -EINVAL;
-	}
-
-	return EXIT_SUCCESS;
-}
+			      struct m5_prop *prop, enum m5_pkt_type pkt_type);
 
 int m5_unpack_puback(struct app_buf *buf, struct m5_pub_response *msg,
 		     struct m5_prop *prop)
@@ -3075,3 +3028,45 @@ int m5_unpack_publish(struct app_buf *buf, struct m5_publish *msg,
 	return unpack(buf, &unpack_info, msg, prop);
 }
 
+static int unpack_pub_msgs_var_hdr(struct app_buf *buf,
+				   struct unpack_info *unpack_info,
+				   void *data,
+				   struct m5_prop *prop)
+{
+	struct m5_pub_response *msg = (struct m5_pub_response *)data;
+	int rc;
+
+	(void)unpack_info;
+
+	rc = m5_unpack_u16(buf, &msg->packet_id);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	rc = m5_unpack_u8(buf, &msg->reason_code);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	rc = m5_unpack_prop(buf, prop, unpack_info->pkt_type);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	return EXIT_SUCCESS;
+}
+
+static int m5_unpack_pub_msgs(struct app_buf *buf, struct m5_pub_response *msg,
+			      struct m5_prop *prop, enum m5_pkt_type pkt_type)
+{
+	struct unpack_info unpack_info = {
+		.fixed_hdr = unpack_fixed_hdr,
+		.var_hdr = unpack_pub_msgs_var_hdr,
+		.payload = NULL };
+
+	unpack_info.pkt_type = pkt_type;
+	unpack_info.fixed_hdr_reserved =
+				(pkt_type == M5_PKT_PUBREL ? 0x02 : 0x00);
+
+	return unpack(buf, &unpack_info, msg, prop);
+}
