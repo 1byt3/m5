@@ -1893,24 +1893,35 @@ static int m5_suback_reason_code(int rc)
 	return -EINVAL;
 }
 
-static int m5_pack_suback_payload(struct app_buf *buf, struct m5_suback *msg)
+static int m5_suback_reason_codes(uint8_t *rcodes, uint8_t elements)
 {
 	uint8_t i = 0;
 
-	while (i < msg->rc_items) {
-		uint8_t reason_code = msg->rc[i];
+	while (i < elements) {
 		int rc;
 
-		rc = m5_suback_reason_code(reason_code);
+		rc = m5_suback_reason_code(rcodes[i]);
 		if (rc != EXIT_SUCCESS) {
 			return rc;
 		}
 
-		buf->data[buf->len + i] = reason_code;
 		i++;
 	};
 
-	buf->len += i;
+	return EXIT_SUCCESS;
+}
+
+static int m5_pack_suback_payload(struct app_buf *buf, struct m5_suback *msg)
+{
+	int rc;
+
+	rc = m5_suback_reason_codes(msg->rc, msg->rc_items);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	memcpy(buf->data + buf->len, msg->rc, msg->rc_items);
+	buf->len += msg->rc_items;
 
 	return EXIT_SUCCESS;
 }
@@ -1927,27 +1938,20 @@ int m5_pack_suback(struct app_buf *buf, struct m5_suback *msg,
 static int m5_unpack_suback_payload(struct app_buf *buf, struct m5_suback *msg,
 				    uint8_t elements)
 {
-	uint8_t i;
 	int rc;
 
 	if (APPBUF_FREE_READ_SPACE(buf) < elements || msg->rc_size < elements) {
 		return -ENOMEM;
 	}
 
-	i = 0;
-	while (i < elements) {
-		msg->rc[i] = buf->data[buf->offset + i];
-
-		rc = m5_suback_reason_code(msg->rc[i]);
-		if (rc != EXIT_SUCCESS) {
-			return rc;
-		}
-
-		i++;
+	rc = m5_suback_reason_codes(buf->data + buf->offset, elements);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
 	}
 
-	buf->offset += i;
-	msg->rc_items = i;
+	memcpy(msg->rc, buf->data + buf->offset, elements);
+	buf->offset += elements;
+	msg->rc_items = elements;
 
 	return EXIT_SUCCESS;
 }
