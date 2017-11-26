@@ -1959,60 +1959,7 @@ static int m5_unpack_suback_payload(struct app_buf *buf, struct m5_suback *msg,
 static int m5_unpack_suback_unsuback(struct app_buf *buf,
 				     struct m5_suback *msg,
 				     struct m5_prop *prop,
-				     enum m5_pkt_type type)
-{
-	uint32_t payload_wsize;
-	uint32_t already_read;
-	uint32_t fixed_header;
-	uint32_t rlen_wsize;
-	uint8_t first;
-	uint32_t rlen;
-
-	int rc;
-
-	if (buf == NULL || msg == NULL || msg->rc_size == 0) {
-		return -EINVAL;
-	}
-
-	already_read = buf->offset;
-
-	rc = m5_unpack_u8(buf, &first);
-	if (rc != EXIT_SUCCESS || first != (type << 4)) {
-		return -EINVAL;
-	}
-
-	rc = m5_decode_int(buf, &rlen, &rlen_wsize);
-	if (rc != EXIT_SUCCESS || buf->offset + rlen > buf->len) {
-		return -EINVAL;
-	}
-
-	rc = m5_unpack_u16(buf, &msg->packet_id);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	rc = m5_unpack_prop(buf, prop, type);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	fixed_header = M5_PACKET_TYPE_WSIZE + rlen_wsize;
-	payload_wsize = rlen - (buf->offset - already_read - fixed_header);
-	if (payload_wsize > UINT8_MAX || payload_wsize == 0) {
-		return -EINVAL;
-	}
-
-	rc = m5_unpack_suback_payload(buf, msg, payload_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	if (buf->offset - already_read != rlen + fixed_header) {
-		return -EINVAL;
-	}
-
-	return EXIT_SUCCESS;
-}
+				     enum m5_pkt_type type);
 
 int m5_unpack_suback(struct app_buf *buf, struct m5_suback *msg,
 		     struct m5_prop *prop)
@@ -3078,3 +3025,60 @@ int m5_unpack_subscribe(struct app_buf *buf, struct m5_subscribe *msg,
 	return unpack(buf, &unpack_info, msg, prop);
 }
 
+static int unpack_suback_unsuback_var_hdr(struct app_buf *buf,
+					  struct unpack_info *unpack_info,
+					  void *data,
+					  struct m5_prop *prop)
+{
+	struct m5_suback *msg = (struct m5_suback *)data;
+	int rc;
+
+	(void)unpack_info;
+
+	rc = m5_unpack_u16(buf, &msg->packet_id);
+	if (rc != EXIT_SUCCESS || msg->packet_id == 0) {
+		return -EINVAL;
+	}
+
+	rc = m5_unpack_prop(buf, prop, unpack_info->pkt_type);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	return EXIT_SUCCESS;
+}
+
+static int unpack_suback_unsuback_payload(struct app_buf *buf,
+					  struct unpack_info *unpack_info,
+					  void *data)
+{
+	struct m5_suback *msg = (struct m5_suback *)data;
+	int rc;
+
+	if (unpack_info->payload_size == 0) {
+		return -EINVAL;
+	}
+
+	rc = m5_unpack_suback_payload(buf, msg, unpack_info->payload_size);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	return EXIT_SUCCESS;
+}
+
+static int m5_unpack_suback_unsuback(struct app_buf *buf,
+				     struct m5_suback *msg,
+				     struct m5_prop *prop,
+				     enum m5_pkt_type pkt_type)
+{
+	struct unpack_info unpack_info = {
+		.fixed_hdr = unpack_fixed_hdr,
+		.var_hdr = unpack_suback_unsuback_var_hdr,
+		.payload = unpack_suback_unsuback_payload,
+
+		.pkt_type = pkt_type,
+		.fixed_hdr_reserved = 0x00 };
+
+	return unpack(buf, &unpack_info, msg, prop);
+}
