@@ -2609,8 +2609,8 @@ static int pack_unsubscribe_var_hdr(struct app_buf *buf, void *data,
 {
 	struct m5_unsubscribe *msg = (struct m5_unsubscribe *)data;
 
-	(void)prop_wsize;
-	(void)prop;
+	ARG_UNUSED(prop_wsize);
+	ARG_UNUSED(prop);
 
 	m5_add_u16(buf, msg->packet_id);
 
@@ -2721,7 +2721,7 @@ static int unpack_fixed_hdr(struct app_buf *buf,
 	uint8_t first;
 	int rc;
 
-	(void)data;
+	ARG_UNUSED(data);
 
 	rc = m5_unpack_u8(buf, &first);
 	if (rc != EXIT_SUCCESS) {
@@ -2744,7 +2744,7 @@ static int unpack_connect_var_hdr(struct app_buf *buf,
 	struct m5_connect *msg = (struct m5_connect *)data;
 	int rc;
 
-	(void)unpack_info;
+	ARG_UNUSED(unpack_info);
 
 	rc = m5_unpack_proto_name(buf);
 	if (rc != EXIT_SUCCESS)	{
@@ -2781,7 +2781,7 @@ static int unpack_connect_payload(struct app_buf *buf,
 {
 	struct m5_connect *msg = (struct m5_connect *)data;
 
-	(void)unpack_info;
+	ARG_UNUSED(unpack_info);
 
 	return m5_unpack_connect_payload(buf, msg);
 }
@@ -2808,7 +2808,7 @@ static int unpack_connack_var_hdr(struct app_buf *buf,
 	struct m5_connack *msg = (struct m5_connack *)data;
 	int rc;
 
-	(void)unpack_info;
+	ARG_UNUSED(unpack_info);
 
 	rc = m5_unpack_u8(buf, &msg->session_present);
 	if (rc != EXIT_SUCCESS || msg->session_present > 0x01) {
@@ -2850,7 +2850,7 @@ static int unpack_publish_fixed_hdr(struct app_buf *buf,
 	uint8_t first;
 	int rc;
 
-	(void)unpack_info;
+	ARG_UNUSED(unpack_info);
 
 	rc = m5_unpack_u8(buf, &first);
 	if (rc != EXIT_SUCCESS || (first & 0xF0) != (M5_PKT_PUBLISH << 4)) {
@@ -2873,7 +2873,7 @@ static int unpack_publish_var_hdr(struct app_buf *buf,
 	struct m5_publish *msg = (struct m5_publish *)data;
 	int rc;
 
-	(void)unpack_info;
+	ARG_UNUSED(unpack_info);
 
 	rc = m5_buffer_set(&msg->topic_name, &msg->topic_name_len, buf);
 	if (rc != EXIT_SUCCESS) {
@@ -2934,7 +2934,7 @@ static int unpack_pub_msgs_var_hdr(struct app_buf *buf,
 	struct m5_pub_response *msg = (struct m5_pub_response *)data;
 	int rc;
 
-	(void)unpack_info;
+	ARG_UNUSED(unpack_info);
 
 	rc = m5_unpack_u16(buf, &msg->packet_id);
 	if (rc != EXIT_SUCCESS) {
@@ -2977,7 +2977,7 @@ static int unpack_subscribe_var_hdr(struct app_buf *buf,
 	struct m5_subscribe *msg = (struct m5_subscribe *)data;
 	int rc;
 
-	(void)unpack_info;
+	ARG_UNUSED(unpack_info);
 
 	rc = m5_unpack_u16(buf, &msg->packet_id);
 	if (rc != EXIT_SUCCESS || msg->packet_id == 0) {
@@ -3033,7 +3033,7 @@ static int unpack_suback_unsuback_var_hdr(struct app_buf *buf,
 	struct m5_suback *msg = (struct m5_suback *)data;
 	int rc;
 
-	(void)unpack_info;
+	ARG_UNUSED(unpack_info);
 
 	rc = m5_unpack_u16(buf, &msg->packet_id);
 	if (rc != EXIT_SUCCESS || msg->packet_id == 0) {
