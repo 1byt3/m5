@@ -1570,7 +1570,6 @@ static int m5_unpack_proto_name(struct app_buf *buf)
 	return M5_SUCCESS;
 }
 
-
 static int m5_connect_flags_clean_start(uint8_t flags)
 {
 	return (flags & (1 << 1)) ? 1 : 0;
@@ -2196,28 +2195,40 @@ int m5_unpack_auth(struct m5_ctx *ctx, struct app_buf *buf,
 }
 
 struct pack_info {
-	int (*fixed_hdr)(struct app_buf *, enum m5_pkt_type, uint8_t);
-	int (*var_hdr)(struct app_buf *, void *, struct m5_prop *, uint32_t);
-	int (*payload)(struct app_buf *, void *data);
+	int (*fixed_hdr)(struct app_buf *, struct pack_info *, void *data);
+	int (*var_hdr)(struct app_buf *, struct pack_info *, void *data,
+		       struct m5_prop *);
+	int (*payload)(struct app_buf *, struct pack_info *, void *data);
 
 	uint32_t var_hdr_size;
 	uint32_t payload_size;
+	uint32_t prop_wsize;
 
-	enum m5_pkt_type pkt_type;
 	uint8_t fixed_hdr_reserved;
+	enum m5_pkt_type pkt_type;
 	uint8_t has_properties;
+	uint32_t remlen;
 };
 
-static int pack_fixed_hdr(struct app_buf *buf, enum m5_pkt_type type,
-			  uint8_t reserved)
+static int pack_fixed_hdr(struct app_buf *buf,
+			  struct pack_info *pack_info,
+			  void *data)
 {
+	uint8_t reserved = pack_info->fixed_hdr_reserved;
+	uint8_t type = pack_info->pkt_type;
+
+	ARG_UNUSED(data);
+
 	m5_add_u8(buf, ((uint8_t)type << 4) | (reserved & 0x0F));
 
 	return M5_SUCCESS;
 }
 
-static int pack(struct m5_ctx *ctx, struct app_buf *buf,
-		struct pack_info *pack_info, void *msg, struct m5_prop *prop)
+static int pack(struct m5_ctx *ctx,
+		struct app_buf *buf,
+		struct pack_info *pack_info,
+		void *msg,
+		struct m5_prop *prop)
 {
 	uint32_t prop_wsize_wsize;
 	uint32_t full_msg_size;
@@ -2243,12 +2254,16 @@ static int pack(struct m5_ctx *ctx, struct app_buf *buf,
 			rc = M5_INVALID_PROPERTY_VBI;
 			goto lb_exit;
 		}
+
+		pack_info->prop_wsize = prop_wsize;
 	}
 
 	rlen = pack_info->var_hdr_size + pack_info->payload_size;
 	if (pack_info->has_properties != 0) {
 		rlen += prop_wsize_wsize + prop_wsize;
 	}
+
+	pack_info->remlen = rlen;
 
 	rc = m5_rlen_wsize(rlen, &rlen_wsize);
 	if (rc != M5_SUCCESS) {
@@ -2262,9 +2277,7 @@ static int pack(struct m5_ctx *ctx, struct app_buf *buf,
 		goto lb_exit;
 	}
 
-	rc = pack_info->fixed_hdr(buf,
-				  pack_info->pkt_type,
-				  pack_info->fixed_hdr_reserved);
+	rc = pack_info->fixed_hdr(buf, pack_info, msg);
 	if (rc != M5_SUCCESS) {
 		rc = M5_INVALID_FIXED_HEADER;
 		goto lb_exit;
@@ -2273,7 +2286,7 @@ static int pack(struct m5_ctx *ctx, struct app_buf *buf,
 	m5_encode_int(buf, rlen);
 
 	if (pack_info->var_hdr != NULL) {
-		rc = pack_info->var_hdr(buf, msg, prop, prop_wsize);
+		rc = pack_info->var_hdr(buf, pack_info, msg, prop);
 		if (rc != M5_SUCCESS) {
 			rc = M5_INVALID_VARIABLE_HEADER;
 			goto lb_exit;
@@ -2281,7 +2294,7 @@ static int pack(struct m5_ctx *ctx, struct app_buf *buf,
 	}
 
 	if (pack_info->payload != NULL) {
-		rc = pack_info->payload(buf, msg);
+		rc = pack_info->payload(buf, pack_info, msg);
 		if (rc != M5_SUCCESS) {
 			rc = M5_INVALID_PAYLOAD;
 			goto lb_exit;
@@ -2295,8 +2308,10 @@ lb_exit:
 	return rc;
 }
 
-static int pack_connect_var_hdr(struct app_buf *buf, void *data,
-				struct m5_prop *prop, uint32_t prop_wsize)
+static int pack_connect_var_hdr(struct app_buf *buf,
+				struct pack_info *pack_info,
+				void *data,
+				struct m5_prop *prop)
 {
 	struct m5_connect *msg = (struct m5_connect *)data;
 	uint8_t flags;
@@ -2308,7 +2323,7 @@ static int pack_connect_var_hdr(struct app_buf *buf, void *data,
 	m5_add_u8(buf, flags);
 	m5_add_u16(buf, msg->keep_alive);
 
-	rc = m5_pack_prop(buf, prop, prop_wsize);
+	rc = m5_pack_prop(buf, prop, pack_info->prop_wsize);
 	if (rc != M5_SUCCESS) {
 		return rc;
 	}
@@ -2316,9 +2331,13 @@ static int pack_connect_var_hdr(struct app_buf *buf, void *data,
 	return M5_SUCCESS;
 }
 
-static int pack_connect_payload(struct app_buf *buf, void *data)
+static int pack_connect_payload(struct app_buf *buf,
+				struct pack_info *pack_info,
+				void *data)
 {
 	struct m5_connect *msg = (struct m5_connect *)data;
+
+	ARG_UNUSED(pack_info);
 
 	return m5_pack_connect_payload(buf, msg);
 }
@@ -2346,15 +2365,17 @@ int m5_pack_connect(struct m5_ctx *ctx, struct app_buf *buf,
 	return pack(ctx, buf, &pack_info, msg, prop);
 }
 
-static int pack_connack_var_hdr(struct app_buf *buf, void *data,
-				struct m5_prop *prop, uint32_t prop_wsize)
+static int pack_connack_var_hdr(struct app_buf *buf,
+				struct pack_info *pack_info,
+				void *data,
+				struct m5_prop *prop)
 {
 	struct m5_connack *msg = (struct m5_connack *)data;
 
 	m5_add_u8(buf, msg->session_present > 0 ? 0x01 : 0x00);
 	m5_add_u8(buf, msg->return_code);
 
-	return m5_pack_prop(buf, prop, prop_wsize);
+	return m5_pack_prop(buf, prop, pack_info->prop_wsize);
 }
 
 int m5_pack_connack(struct m5_ctx *ctx, struct app_buf *buf,
@@ -2374,8 +2395,10 @@ int m5_pack_connack(struct m5_ctx *ctx, struct app_buf *buf,
 	return pack(ctx, buf, &pack_info, msg, prop);
 }
 
-static int pack_publish_var_hdr(struct app_buf *buf, void *data,
-				struct m5_prop *prop, uint32_t prop_wsize)
+static int pack_publish_var_hdr(struct app_buf *buf,
+				struct pack_info *pack_info,
+				void *data,
+				struct m5_prop *prop)
 {
 	struct m5_publish *msg = (struct m5_publish *)data;
 
@@ -2384,12 +2407,16 @@ static int pack_publish_var_hdr(struct app_buf *buf, void *data,
 		m5_add_u16(buf, msg->packet_id);
 	}
 
-	return m5_pack_prop(buf, prop, prop_wsize);
+	return m5_pack_prop(buf, prop, pack_info->prop_wsize);
 }
 
-static int pack_publish_payload(struct app_buf *buf, void *data)
+static int pack_publish_payload(struct app_buf *buf,
+				struct pack_info *pack_info,
+				void *data)
 {
 	struct m5_publish *msg = (struct m5_publish *)data;
+
+	ARG_UNUSED(pack_info);
 
 	return m5_pack_raw_binary(buf, msg->payload, msg->payload_len);
 }
@@ -2424,19 +2451,23 @@ int m5_pack_publish(struct m5_ctx *ctx, struct app_buf *buf,
 	return pack(ctx, buf, &pack_info, msg, prop);
 }
 
-static int pack_pub_msgs_var_hdr(struct app_buf *buf, void *data,
-				 struct m5_prop *prop, uint32_t prop_wsize)
+static int pack_pub_msgs_var_hdr(struct app_buf *buf,
+				 struct pack_info *pack_info,
+				 void *data,
+				 struct m5_prop *prop)
 {
 	struct m5_pub_response *msg = (struct m5_pub_response *)data;
 
 	m5_add_u16(buf, msg->packet_id);
 	m5_add_u8(buf, msg->reason_code);
 
-	return m5_pack_prop(buf, prop, prop_wsize);
+	return m5_pack_prop(buf, prop, pack_info->prop_wsize);
 }
 
-static int m5_pack_pub_msgs(struct m5_ctx *ctx, struct app_buf *buf,
-			    struct m5_pub_response *msg, struct m5_prop *prop,
+static int m5_pack_pub_msgs(struct m5_ctx *ctx,
+			    struct app_buf *buf,
+			    struct m5_pub_response *msg,
+			    struct m5_prop *prop,
 			    enum m5_pkt_type pkt_type)
 {
 	struct pack_info pack_info = {
@@ -2465,19 +2496,25 @@ static int m5_pack_pub_msgs(struct m5_ctx *ctx, struct app_buf *buf,
 	return pack(ctx, buf, &pack_info, msg, prop);
 }
 
-static int pack_subscribe_var_hdr(struct app_buf *buf, void *data,
-				  struct m5_prop *prop, uint32_t prop_wsize)
+static int pack_subscribe_var_hdr(struct app_buf *buf,
+				  struct pack_info *pack_info,
+				  void *data,
+				  struct m5_prop *prop)
 {
 	struct m5_subscribe *msg = (struct m5_subscribe *)data;
 
 	m5_add_u16(buf, msg->packet_id);
 
-	return m5_pack_prop(buf, prop, prop_wsize);
+	return m5_pack_prop(buf, prop, pack_info->prop_wsize);
 }
 
-static int pack_subscribe_payload(struct app_buf *buf, void *data)
+static int pack_subscribe_payload(struct app_buf *buf,
+				  struct pack_info *pack_info,
+				  void *data)
 {
 	struct m5_subscribe *msg = (struct m5_subscribe *)data;
+
+	ARG_UNUSED(pack_info);
 
 	return m5_pack_subscribe_payload(buf, msg);
 }
@@ -2511,20 +2548,25 @@ int m5_pack_subscribe(struct m5_ctx *ctx, struct app_buf *buf,
 	return pack(ctx, buf, &pack_info, msg, prop);
 }
 
-static int pack_suback_unsuback_var_hdr(struct app_buf *buf, void *data,
-					struct m5_prop *prop,
-					uint32_t prop_wsize)
+static int pack_suback_unsuback_var_hdr(struct app_buf *buf,
+					struct pack_info *pack_info,
+					void *data,
+					struct m5_prop *prop)
 {
 	struct m5_suback *msg = (struct m5_suback *)data;
 
 	m5_add_u16(buf, msg->packet_id);
 
-	return m5_pack_prop(buf, prop, prop_wsize);
+	return m5_pack_prop(buf, prop, pack_info->prop_wsize);
 }
 
-static int pack_suback_unsuback_payload(struct app_buf *buf, void *data)
+static int pack_suback_unsuback_payload(struct app_buf *buf,
+					struct pack_info *pack_info,
+					void *data)
 {
 	struct m5_suback *msg = (struct m5_suback *)data;
+
+	ARG_UNUSED(pack_info);
 
 	return m5_pack_suback_payload(buf, msg);
 }
@@ -2551,13 +2593,14 @@ static int m5_pack_suback_unsuback(struct m5_ctx *ctx, struct app_buf *buf,
 	return pack(ctx, buf, &pack_info, msg, prop);
 }
 
-static int pack_unsubscribe_var_hdr(struct app_buf *buf, void *data,
-				    struct m5_prop *prop,
-				    uint32_t prop_wsize)
+static int pack_unsubscribe_var_hdr(struct app_buf *buf,
+				    struct pack_info *pack_info,
+				    void *data,
+				    struct m5_prop *prop)
 {
 	struct m5_unsubscribe *msg = (struct m5_unsubscribe *)data;
 
-	ARG_UNUSED(prop_wsize);
+	ARG_UNUSED(pack_info);
 	ARG_UNUSED(prop);
 
 	m5_add_u16(buf, msg->packet_id);
@@ -2565,9 +2608,12 @@ static int pack_unsubscribe_var_hdr(struct app_buf *buf, void *data,
 	return M5_SUCCESS;
 }
 
-static int pack_unsubscribe_payload(struct app_buf *buf, void *data)
+static int pack_unsubscribe_payload(struct app_buf *buf,
+				    struct pack_info *pack_info, void *data)
 {
 	struct m5_unsubscribe *msg = (struct m5_unsubscribe *)data;
+
+	ARG_UNUSED(pack_info);
 
 	return m5_pack_topics(buf, &msg->topics);
 }
@@ -2598,22 +2644,11 @@ int m5_pack_unsubscribe(struct m5_ctx *ctx, struct app_buf *buf,
 	return pack(ctx, buf, &pack_info, msg, NULL);
 }
 
-struct unpack_info {
-	int (*fixed_hdr)(struct app_buf *, struct unpack_info *, void *data);
-	int (*var_hdr)(struct app_buf *, struct unpack_info *,
-		       void *data, struct m5_prop *);
-	int (*payload)(struct app_buf *, struct unpack_info *, void *data);
-
-	uint8_t fixed_hdr_reserved;
-	enum m5_pkt_type pkt_type;
-	uint32_t payload_size;
-	uint32_t remlen;
-};
-
 static int unpack(struct m5_ctx *ctx,
 		  struct app_buf *buf,
-		  struct unpack_info *unpack_info,
-		  void *msg, struct m5_prop *prop)
+		  struct pack_info *pack_info,
+		  void *msg,
+		  struct m5_prop *prop)
 {
 	uint32_t full_packet_size;
 	uint32_t already_read;
@@ -2628,7 +2663,7 @@ static int unpack(struct m5_ctx *ctx,
 
 	already_read = buf->offset;
 
-	rc = unpack_info->fixed_hdr(buf, unpack_info, msg);
+	rc = pack_info->fixed_hdr(buf, pack_info, msg);
 	if (rc != M5_SUCCESS) {
 		rc = M5_INVALID_FIXED_HEADER;
 		goto lb_exit;
@@ -2640,15 +2675,15 @@ static int unpack(struct m5_ctx *ctx,
 		goto lb_exit;
 	}
 
-	unpack_info->remlen = rlen;
+	pack_info->remlen = rlen;
 
 	if (APPBUF_FREE_READ_SPACE(buf) < rlen) {
 		return M5_NOT_ENOUGH_SPACE_IN_BUFFER;
 		goto lb_exit;
 	}
 
-	if (unpack_info->var_hdr != NULL) {
-		rc = unpack_info->var_hdr(buf, unpack_info, msg, prop);
+	if (pack_info->var_hdr != NULL) {
+		rc = pack_info->var_hdr(buf, pack_info, msg, prop);
 		if (rc != M5_SUCCESS) {
 			return M5_INVALID_VARIABLE_HEADER;
 			goto lb_exit;
@@ -2657,10 +2692,10 @@ static int unpack(struct m5_ctx *ctx,
 
 	full_packet_size = M5_PACKET_TYPE_WSIZE + rlen + rlen_wsize;
 
-	if (unpack_info->payload != NULL) {
-		unpack_info->payload_size = full_packet_size -
-					    (buf->offset - already_read);
-		rc = unpack_info->payload(buf, unpack_info, msg);
+	if (pack_info->payload != NULL) {
+		pack_info->payload_size = full_packet_size -
+					  (buf->offset - already_read);
+		rc = pack_info->payload(buf, pack_info, msg);
 		if (rc != M5_SUCCESS) {
 			rc = M5_INVALID_PAYLOAD;
 			goto lb_exit;
@@ -2680,7 +2715,7 @@ lb_exit:
 }
 
 static int unpack_fixed_hdr(struct app_buf *buf,
-			    struct unpack_info *unpack_info,
+			    struct pack_info *pack_info,
 			    void *data)
 {
 	uint8_t first;
@@ -2693,8 +2728,8 @@ static int unpack_fixed_hdr(struct app_buf *buf,
 		return rc;
 	}
 
-	if ((first >> 4) != unpack_info->pkt_type ||
-	    ((first & 0x0F) != (unpack_info->fixed_hdr_reserved & 0x0F))) {
+	if ((first >> 4) != pack_info->pkt_type ||
+	    ((first & 0x0F) != (pack_info->fixed_hdr_reserved & 0x0F))) {
 		return M5_INVALID_ARGUMENT;
 	}
 
@@ -2702,14 +2737,14 @@ static int unpack_fixed_hdr(struct app_buf *buf,
 }
 
 static int unpack_connect_var_hdr(struct app_buf *buf,
-				  struct unpack_info *unpack_info,
+				  struct pack_info *pack_info,
 				  void *data,
 				  struct m5_prop *prop)
 {
 	struct m5_connect *msg = (struct m5_connect *)data;
 	int rc;
 
-	ARG_UNUSED(unpack_info);
+	ARG_UNUSED(pack_info);
 
 	rc = m5_unpack_proto_name(buf);
 	if (rc != M5_SUCCESS)	{
@@ -2741,12 +2776,12 @@ static int unpack_connect_var_hdr(struct app_buf *buf,
 }
 
 static int unpack_connect_payload(struct app_buf *buf,
-				  struct unpack_info *unpack_info,
+				  struct pack_info *pack_info,
 				  void *data)
 {
 	struct m5_connect *msg = (struct m5_connect *)data;
 
-	ARG_UNUSED(unpack_info);
+	ARG_UNUSED(pack_info);
 
 	return m5_unpack_connect_payload(buf, msg);
 }
@@ -2754,7 +2789,7 @@ static int unpack_connect_payload(struct app_buf *buf,
 int m5_unpack_connect(struct m5_ctx *ctx, struct app_buf *buf,
 		      struct m5_connect *msg, struct m5_prop *prop)
 {
-	struct unpack_info unpack_info = {
+	struct pack_info pack_info = {
 		.fixed_hdr = unpack_fixed_hdr,
 		.var_hdr = unpack_connect_var_hdr,
 		.payload = unpack_connect_payload,
@@ -2762,18 +2797,18 @@ int m5_unpack_connect(struct m5_ctx *ctx, struct app_buf *buf,
 		.pkt_type = M5_PKT_CONNECT,
 		.fixed_hdr_reserved = 0x00 };
 
-	return unpack(ctx, buf, &unpack_info, msg, prop);
+	return unpack(ctx, buf, &pack_info, msg, prop);
 }
 
 static int unpack_connack_var_hdr(struct app_buf *buf,
-				  struct unpack_info *unpack_info,
+				  struct pack_info *pack_info,
 				  void *data,
 				  struct m5_prop *prop)
 {
 	struct m5_connack *msg = (struct m5_connack *)data;
 	int rc;
 
-	ARG_UNUSED(unpack_info);
+	ARG_UNUSED(pack_info);
 
 	rc = m5_unpack_u8(buf, &msg->session_present);
 	if (rc != M5_SUCCESS || msg->session_present > 0x01) {
@@ -2796,7 +2831,7 @@ static int unpack_connack_var_hdr(struct app_buf *buf,
 int m5_unpack_connack(struct m5_ctx *ctx, struct app_buf *buf,
 		      struct m5_connack *msg, struct m5_prop *prop)
 {
-	struct unpack_info unpack_info = {
+	struct pack_info pack_info = {
 		.fixed_hdr = unpack_fixed_hdr,
 		.var_hdr = unpack_connack_var_hdr,
 		.payload = NULL,
@@ -2804,18 +2839,18 @@ int m5_unpack_connack(struct m5_ctx *ctx, struct app_buf *buf,
 		.pkt_type = M5_PKT_CONNACK,
 		.fixed_hdr_reserved = 0x00 };
 
-	return unpack(ctx, buf, &unpack_info, msg, prop);
+	return unpack(ctx, buf, &pack_info, msg, prop);
 }
 
 static int unpack_publish_fixed_hdr(struct app_buf *buf,
-				    struct unpack_info *unpack_info,
+				    struct pack_info *pack_info,
 				    void *data)
 {
 	struct m5_publish *msg = (struct m5_publish *)data;
 	uint8_t first;
 	int rc;
 
-	ARG_UNUSED(unpack_info);
+	ARG_UNUSED(pack_info);
 
 	rc = m5_unpack_u8(buf, &first);
 	if (rc != M5_SUCCESS || (first & 0xF0) != (M5_PKT_PUBLISH << 4)) {
@@ -2831,14 +2866,14 @@ static int unpack_publish_fixed_hdr(struct app_buf *buf,
 }
 
 static int unpack_publish_var_hdr(struct app_buf *buf,
-				  struct unpack_info *unpack_info,
+				  struct pack_info *pack_info,
 				  void *data,
 				  struct m5_prop *prop)
 {
 	struct m5_publish *msg = (struct m5_publish *)data;
 	int rc;
 
-	ARG_UNUSED(unpack_info);
+	ARG_UNUSED(pack_info);
 
 	rc = m5_buffer_set(&msg->topic_name, &msg->topic_name_len, buf);
 	if (rc != M5_SUCCESS) {
@@ -2861,12 +2896,12 @@ static int unpack_publish_var_hdr(struct app_buf *buf,
 }
 
 static int unpack_publish_payload(struct app_buf *buf,
-				  struct unpack_info *unpack_info,
+				  struct pack_info *pack_info,
 				  void *data)
 {
 	struct m5_publish *msg = (struct m5_publish *)data;
 
-	msg->payload_len = unpack_info->payload_size;
+	msg->payload_len = pack_info->payload_size;
 
 	if (msg->payload_len > 0) {
 		msg->payload = buf->data + buf->offset;
@@ -2881,25 +2916,25 @@ static int unpack_publish_payload(struct app_buf *buf,
 int m5_unpack_publish(struct m5_ctx *ctx, struct app_buf *buf,
 		      struct m5_publish *msg, struct m5_prop *prop)
 {
-	struct unpack_info unpack_info = {
+	struct pack_info pack_info = {
 		.fixed_hdr = unpack_publish_fixed_hdr,
 		.var_hdr = unpack_publish_var_hdr,
 		.payload = unpack_publish_payload,
 
 		.fixed_hdr_reserved = 0x00 };
 
-	return unpack(ctx, buf, &unpack_info, msg, prop);
+	return unpack(ctx, buf, &pack_info, msg, prop);
 }
 
 static int unpack_pub_msgs_var_hdr(struct app_buf *buf,
-				   struct unpack_info *unpack_info,
+				   struct pack_info *pack_info,
 				   void *data,
 				   struct m5_prop *prop)
 {
 	struct m5_pub_response *msg = (struct m5_pub_response *)data;
 	int rc;
 
-	ARG_UNUSED(unpack_info);
+	ARG_UNUSED(pack_info);
 
 	rc = m5_unpack_u16(buf, &msg->packet_id);
 	if (rc != M5_SUCCESS) {
@@ -2911,7 +2946,7 @@ static int unpack_pub_msgs_var_hdr(struct app_buf *buf,
 		return rc;
 	}
 
-	rc = m5_unpack_prop(buf, prop, unpack_info->pkt_type);
+	rc = m5_unpack_prop(buf, prop, pack_info->pkt_type);
 	if (rc != M5_SUCCESS) {
 		return rc;
 	}
@@ -2923,27 +2958,27 @@ static int m5_unpack_pub_msgs(struct m5_ctx *ctx, struct app_buf *buf,
 			      struct m5_pub_response *msg, struct m5_prop *prop,
 			      enum m5_pkt_type pkt_type)
 {
-	struct unpack_info unpack_info = {
+	struct pack_info pack_info = {
 		.fixed_hdr = unpack_fixed_hdr,
 		.var_hdr = unpack_pub_msgs_var_hdr,
 		.payload = NULL };
 
-	unpack_info.pkt_type = pkt_type;
-	unpack_info.fixed_hdr_reserved =
+	pack_info.pkt_type = pkt_type;
+	pack_info.fixed_hdr_reserved =
 				(pkt_type == M5_PKT_PUBREL ? 0x02 : 0x00);
 
-	return unpack(ctx, buf, &unpack_info, msg, prop);
+	return unpack(ctx, buf, &pack_info, msg, prop);
 }
 
 static int unpack_subscribe_var_hdr(struct app_buf *buf,
-				    struct unpack_info *unpack_info,
+				    struct pack_info *pack_info,
 				    void *data,
 				    struct m5_prop *prop)
 {
 	struct m5_subscribe *msg = (struct m5_subscribe *)data;
 	int rc;
 
-	ARG_UNUSED(unpack_info);
+	ARG_UNUSED(pack_info);
 
 	rc = m5_unpack_u16(buf, &msg->packet_id);
 	if (rc != M5_SUCCESS || msg->packet_id == 0) {
@@ -2959,17 +2994,17 @@ static int unpack_subscribe_var_hdr(struct app_buf *buf,
 }
 
 static int unpack_subscribe_payload(struct app_buf *buf,
-				    struct unpack_info *unpack_info,
+				    struct pack_info *pack_info,
 				    void *data)
 {
 	struct m5_subscribe *msg = (struct m5_subscribe *)data;
 	int rc;
 
-	if (unpack_info->payload_size == 0) {
+	if (pack_info->payload_size == 0) {
 		return M5_INVALID_ARGUMENT;
 	}
 
-	rc = m5_unpack_subscribe_payload(buf, msg, unpack_info->payload_size);
+	rc = m5_unpack_subscribe_payload(buf, msg, pack_info->payload_size);
 	if (rc != M5_SUCCESS) {
 		return rc;
 	}
@@ -2980,7 +3015,7 @@ static int unpack_subscribe_payload(struct app_buf *buf,
 int m5_unpack_subscribe(struct m5_ctx *ctx, struct app_buf *buf,
 			struct m5_subscribe *msg, struct m5_prop *prop)
 {
-	struct unpack_info unpack_info = {
+	struct pack_info pack_info = {
 		.fixed_hdr = unpack_fixed_hdr,
 		.var_hdr = unpack_subscribe_var_hdr,
 		.payload = unpack_subscribe_payload,
@@ -2988,25 +3023,25 @@ int m5_unpack_subscribe(struct m5_ctx *ctx, struct app_buf *buf,
 		.pkt_type = M5_PKT_SUBSCRIBE,
 		.fixed_hdr_reserved = 0x02 };
 
-	return unpack(ctx, buf, &unpack_info, msg, prop);
+	return unpack(ctx, buf, &pack_info, msg, prop);
 }
 
 static int unpack_suback_unsuback_var_hdr(struct app_buf *buf,
-					  struct unpack_info *unpack_info,
+					  struct pack_info *pack_info,
 					  void *data,
 					  struct m5_prop *prop)
 {
 	struct m5_suback *msg = (struct m5_suback *)data;
 	int rc;
 
-	ARG_UNUSED(unpack_info);
+	ARG_UNUSED(pack_info);
 
 	rc = m5_unpack_u16(buf, &msg->packet_id);
 	if (rc != M5_SUCCESS || msg->packet_id == 0) {
 		return M5_INVALID_ARGUMENT;
 	}
 
-	rc = m5_unpack_prop(buf, prop, unpack_info->pkt_type);
+	rc = m5_unpack_prop(buf, prop, pack_info->pkt_type);
 	if (rc != M5_SUCCESS) {
 		return rc;
 	}
@@ -3015,17 +3050,17 @@ static int unpack_suback_unsuback_var_hdr(struct app_buf *buf,
 }
 
 static int unpack_suback_unsuback_payload(struct app_buf *buf,
-					  struct unpack_info *unpack_info,
+					  struct pack_info *pack_info,
 					  void *data)
 {
 	struct m5_suback *msg = (struct m5_suback *)data;
 	int rc;
 
-	if (unpack_info->payload_size == 0) {
+	if (pack_info->payload_size == 0) {
 		return M5_INVALID_ARGUMENT;
 	}
 
-	rc = m5_unpack_suback_payload(buf, msg, unpack_info->payload_size);
+	rc = m5_unpack_suback_payload(buf, msg, pack_info->payload_size);
 	if (rc != M5_SUCCESS) {
 		return rc;
 	}
@@ -3039,7 +3074,7 @@ static int m5_unpack_suback_unsuback(struct m5_ctx *ctx,
 				     struct m5_prop *prop,
 				     enum m5_pkt_type pkt_type)
 {
-	struct unpack_info unpack_info = {
+	struct pack_info pack_info = {
 		.fixed_hdr = unpack_fixed_hdr,
 		.var_hdr = unpack_suback_unsuback_var_hdr,
 		.payload = unpack_suback_unsuback_payload,
@@ -3047,17 +3082,17 @@ static int m5_unpack_suback_unsuback(struct m5_ctx *ctx,
 		.pkt_type = pkt_type,
 		.fixed_hdr_reserved = 0x00 };
 
-	return unpack(ctx, buf, &unpack_info, msg, prop);
+	return unpack(ctx, buf, &pack_info, msg, prop);
 }
 
 static int unpack_unsubscribe_var_hdr(struct app_buf *buf,
-				      struct unpack_info *unpack_info,
+				      struct pack_info *pack_info,
 				      void *data, struct m5_prop *prop)
 {
 	struct m5_unsubscribe *msg = (struct m5_unsubscribe *)data;
 	int rc;
 
-	ARG_UNUSED(unpack_info);
+	ARG_UNUSED(pack_info);
 	ARG_UNUSED(prop);
 
 	rc = m5_unpack_u16(buf, &msg->packet_id);
@@ -3069,17 +3104,17 @@ static int unpack_unsubscribe_var_hdr(struct app_buf *buf,
 }
 
 static int unpack_unsubscribe_payload(struct app_buf *buf,
-				      struct unpack_info *unpack_info,
+				      struct pack_info *pack_info,
 				      void *data)
 {
 	struct m5_unsubscribe *msg = (struct m5_unsubscribe *)data;
 	int rc;
 
-	if (unpack_info->payload_size == 0) {
+	if (pack_info->payload_size == 0) {
 		return M5_INVALID_ARGUMENT;
 	}
 
-	rc = m5_unpack_topics(buf, &msg->topics, unpack_info->payload_size);
+	rc = m5_unpack_topics(buf, &msg->topics, pack_info->payload_size);
 	if (rc != M5_SUCCESS) {
 		return rc;
 	}
@@ -3090,7 +3125,7 @@ static int unpack_unsubscribe_payload(struct app_buf *buf,
 int m5_unpack_unsubscribe(struct m5_ctx *ctx, struct app_buf *buf,
 			  struct m5_unsubscribe *msg)
 {
-	struct unpack_info unpack_info = {
+	struct pack_info pack_info = {
 		.fixed_hdr = unpack_fixed_hdr,
 		.var_hdr = unpack_unsubscribe_var_hdr,
 		.payload = unpack_unsubscribe_payload,
@@ -3098,17 +3133,17 @@ int m5_unpack_unsubscribe(struct m5_ctx *ctx, struct app_buf *buf,
 		.pkt_type = M5_PKT_UNSUBSCRIBE,
 		.fixed_hdr_reserved = 0x02 };
 
-	return unpack(ctx, buf, &unpack_info, msg, NULL);
+	return unpack(ctx, buf, &pack_info, msg, NULL);
 }
 
 static int unpack_disconnect_auth_var_hdr(struct app_buf *buf,
-					  struct unpack_info *unpack_info,
+					  struct pack_info *pack_info,
 					  void *data, struct m5_prop *prop)
 {
 	uint8_t *reason_code = (uint8_t *)data;
 	int rc;
 
-	if (unpack_info->remlen == 0) {
+	if (pack_info->remlen == 0) {
 		*reason_code = 0x00;
 		goto lb_exit_ok;
 	}
@@ -3119,8 +3154,8 @@ static int unpack_disconnect_auth_var_hdr(struct app_buf *buf,
 		goto lb_exit;
 	}
 
-	if (unpack_info->remlen > 1) {
-		rc = m5_unpack_prop(buf, prop, unpack_info->pkt_type);
+	if (pack_info->remlen > 1) {
+		rc = m5_unpack_prop(buf, prop, pack_info->pkt_type);
 		if (rc != M5_SUCCESS) {
 			rc = M5_INVALID_PROPERTIES;
 			goto lb_exit;
@@ -3138,7 +3173,7 @@ static int m5_unpack_disconnect_auth(struct m5_ctx *ctx, struct app_buf *buf,
 				     uint8_t *reason_code, struct m5_prop *prop,
 				     enum m5_pkt_type type)
 {
-	struct unpack_info unpack_info = {
+	struct pack_info pack_info = {
 		.fixed_hdr = unpack_fixed_hdr,
 		.var_hdr = unpack_disconnect_auth_var_hdr,
 		.payload = NULL,
@@ -3146,5 +3181,5 @@ static int m5_unpack_disconnect_auth(struct m5_ctx *ctx, struct app_buf *buf,
 		.pkt_type = type,
 		.fixed_hdr_reserved = 0x00 };
 
-	return unpack(ctx, buf, &unpack_info, reason_code, prop);
+	return unpack(ctx, buf, &pack_info, reason_code, prop);
 }
