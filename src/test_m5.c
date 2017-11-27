@@ -44,7 +44,7 @@
 #include <stdio.h>
 
 #define TEST_HDR(msg)	printf("------------------------\n%s\n", (msg))
-#define RC_TO_STR(rc)	((rc) == EXIT_SUCCESS ? "OK" : "ERROR")
+#define RC_TO_STR(rc)	((rc) == M5_SUCCESS ? "OK" : "ERROR")
 #define DBG(msg)	printf("\t%s:%d %s\n", __func__, __LINE__, msg)
 
 
@@ -106,6 +106,7 @@ static void print_buf(struct app_buf *buf)
 }
 
 static uint8_t data[256];
+static struct m5_ctx ctx;
 
 static int encode_decode(uint32_t val)
 {
@@ -119,13 +120,13 @@ static int encode_decode(uint32_t val)
 	buf.size = sizeof(data);
 
 	rc = m5_encode_int(&buf, val);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		DBG("m5_encode_int");
 		return rc;
 	}
 
 	rc = m5_rlen_wsize(val, &val_wsize);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		DBG("m5_rlen_wsize");
 		return rc;
 	}
@@ -136,7 +137,7 @@ static int encode_decode(uint32_t val)
 	}
 
 	rc = m5_decode_int(&buf, &v, &v_wsize);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		DBG("m5_rlen_wsize");
 		return rc;
 	}
@@ -146,7 +147,7 @@ static int encode_decode(uint32_t val)
 		return rc;
 	}
 
-	return EXIT_SUCCESS;
+	return M5_SUCCESS;
 }
 
 static void test_int_encoding(void)
@@ -156,31 +157,31 @@ static void test_int_encoding(void)
 	TEST_HDR(__func__);
 
 	rc = encode_decode(127);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		exit(rc);
 	}
 
 	rc = encode_decode(16383);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		exit(rc);
 	}
 
 	rc = encode_decode(2097151);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		exit(rc);
 	}
 
 	rc = encode_decode(268435455);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		exit(rc);
 	}
 
 	/* must fail */
 	rc = encode_decode(268435455 + 1);
-	if (rc == EXIT_SUCCESS) {
+	if (rc == M5_SUCCESS) {
 		exit(rc);
 	}
-	rc = EXIT_SUCCESS;
+	rc = M5_SUCCESS;
 
 	printf("%s\n", RC_TO_STR(rc));
 }
@@ -226,19 +227,19 @@ static void test_m5_add_str(void)
 		p2->_ ## name, p2->_ ## name ## _len)
 
 #define PROP_CMP_INT(p1, p2, name)				\
-	(p1->_ ## name == p2->_ ## name ? EXIT_SUCCESS : -EINVAL)
+	(p1->_ ## name == p2->_ ## name ? M5_SUCCESS : M5_INVALID_ARGUMENT)
 
 static int cmp_str(uint8_t *a, uint16_t a_len, uint8_t *b, uint16_t b_len)
 {
 	if (a_len != b_len) {
-		return -EINVAL;
+		return M5_INVALID_ARGUMENT;
 	}
 
 	if (memcmp(a, b, a_len) != 0) {
-		return -EINVAL;
+		return M5_INVALID_ARGUMENT;
 	}
 
-	return EXIT_SUCCESS;
+	return M5_SUCCESS;
 }
 
 static int cmp_prop(struct m5_prop *p1, struct m5_prop *p2)
@@ -246,156 +247,156 @@ static int cmp_prop(struct m5_prop *p1, struct m5_prop *p2)
 	int rc;
 
 	rc = PROP_CMP_STR(p1, p2, auth_method);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
 		return rc;
 	}
 
 	rc = PROP_CMP_STR(p1, p2, auth_data);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
 		return rc;
 	}
 
 	rc = PROP_CMP_STR(p1, p2, content_type);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
 		return rc;
 	}
 
 	rc = PROP_CMP_STR(p1, p2, correlation_data);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
 		return rc;
 	}
 
 	rc = PROP_CMP_STR(p1, p2, response_info);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
 		return rc;
 	}
 
 	rc = PROP_CMP_STR(p1, p2, server_reference);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
 		return rc;
 	}
 
 	rc = PROP_CMP_STR(p1, p2, assigned_client_id);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
 		return rc;
 	}
 
 	rc = PROP_CMP_STR(p1, p2, response_topic);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
 		return rc;
 	}
 
 	rc = PROP_CMP_INT(p1, p2, max_packet_size);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
 		return rc;
 	}
 
 	rc = PROP_CMP_INT(p1, p2, publication_expiry_interval);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
 		return rc;
 	}
 
 	rc = PROP_CMP_INT(p1, p2, session_expiry_interval);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
 		return rc;
 	}
 
 	rc = PROP_CMP_INT(p1, p2, subscription_id);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
 		return rc;
 	}
 
 	rc = PROP_CMP_INT(p1, p2, will_delay_interval);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
 		return rc;
 	}
 
 	rc = PROP_CMP_INT(p1, p2, receive_max);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
 		return rc;
 	}
 
 	rc = PROP_CMP_INT(p1, p2, server_keep_alive);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
 		return rc;
 	}
 
 	rc = PROP_CMP_INT(p1, p2, topic_alias);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
 		return rc;
 	}
 
 	rc = PROP_CMP_INT(p1, p2, topic_alias_max);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
 		return rc;
 	}
 
 	rc = PROP_CMP_INT(p1, p2, payload_format_indicator);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
 		return rc;
 	}
 
 	rc = PROP_CMP_INT(p1, p2, max_qos);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
 		return rc;
 	}
 
 	rc = PROP_CMP_INT(p1, p2, retain_available);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
 		return rc;
 	}
 
 	rc = PROP_CMP_INT(p1, p2, wildcard_subscription_available);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
 		return rc;
 	}
 
 	rc = PROP_CMP_INT(p1, p2, subscription_id_available);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
 		return rc;
 	}
 
 	rc = PROP_CMP_INT(p1, p2, shared_subscription_available);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
 		return rc;
 	}
 
 	rc = PROP_CMP_INT(p1, p2, request_response_info);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
 		return rc;
 	}
 
 	rc = PROP_CMP_INT(p1, p2, request_problem_info);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
 		return rc;
 	}
 
-	return EXIT_SUCCESS;
+	return M5_SUCCESS;
 }
 
 #define DEBUG_PROP_FLAGS(prop, new_prop)			\
@@ -438,7 +439,7 @@ static void test_m5_connect(void)
 	for (i = 0; i < M5_USER_PROP_SIZE; i++) {
 		rc = m5_prop_add_user_prop(&prop, (uint8_t *)"hello", 5,
 						  (uint8_t *)"world!", 6);
-		if (rc != EXIT_SUCCESS) {
+		if (rc != M5_SUCCESS) {
 			DBG("m5_prop_add_user_prop");
 			exit(1);
 		}
@@ -458,8 +459,8 @@ static void test_m5_connect(void)
 	msg.will_msg = (uint8_t *)will_msg;
 	msg.will_msg_len = strlen(will_msg);
 
-	rc = m5_pack_connect(&buf, &msg, &prop);
-	if (rc != EXIT_SUCCESS) {
+	rc = m5_pack_connect(&ctx, &buf, &msg, &prop);
+	if (rc != M5_SUCCESS) {
 		DBG("m5_pack_connect");
 		exit(1);
 	}
@@ -468,14 +469,14 @@ static void test_m5_connect(void)
 	print_buf(&buf);
 
 	buf.offset = 0;
-	rc = m5_unpack_connect(&buf, &msg2, &prop2);
-	if (rc != EXIT_SUCCESS) {
+	rc = m5_unpack_connect(&ctx, &buf, &msg2, &prop2);
+	if (rc != M5_SUCCESS) {
 		DBG("m5_unpack_connect");
 		exit(1);
 	}
 
 	rc = cmp_prop(&prop, &prop2);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		DBG("cmp_prop");
 		exit(1);
 	}
@@ -581,7 +582,7 @@ static void test_m5_connack(void)
 	for (i = 0; i < M5_USER_PROP_SIZE; i++) {
 		rc = m5_prop_add_user_prop(&prop, (uint8_t *)"hello", 5,
 						  (uint8_t *)"world!", 6);
-		if (rc != EXIT_SUCCESS) {
+		if (rc != M5_SUCCESS) {
 			DBG("m5_prop_add_user_prop");
 			exit(1);		}
 	}
@@ -594,21 +595,21 @@ static void test_m5_connack(void)
 	m5_prop_auth_method(&prop, (uint8_t *)"auth method", 11);
 	m5_prop_auth_data(&prop, (uint8_t *)"auth_data", 9);
 
-	rc = m5_pack_connack(&buf, &msg, &prop);
-	if (rc != EXIT_SUCCESS) {
+	rc = m5_pack_connack(&ctx, &buf, &msg, &prop);
+	if (rc != M5_SUCCESS) {
 		DBG("m5_pack_connack");
 		exit(1);
 	}
 
 	buf.offset = 0;
-	rc = m5_unpack_connack(&buf, &msg, &prop2);
-	if (rc != EXIT_SUCCESS) {
+	rc = m5_unpack_connack(&ctx, &buf, &msg, &prop2);
+	if (rc != M5_SUCCESS) {
 		DBG("m5_unpack_connack");
 		exit(1);
 	}
 
 	rc = cmp_prop(&prop, &prop2);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		DBG("cmp_prop");
 		exit(1);
 	}
@@ -650,7 +651,7 @@ static void test_m5_publish(void)
 	for (i = 0; i < M5_USER_PROP_SIZE; i++) {
 		rc = m5_prop_add_user_prop(&prop, (uint8_t *)"hello", 5,
 						  (uint8_t *)"world!", 6);
-		if (rc != EXIT_SUCCESS) {
+		if (rc != M5_SUCCESS) {
 			DBG("m5_prop_add_user_prop");
 			exit(1);
 		}
@@ -658,15 +659,15 @@ static void test_m5_publish(void)
 	m5_prop_subscription_id(&prop, 0x12);
 	m5_prop_content_type(&prop, (uint8_t *)"data", 4);
 
-	rc = m5_pack_publish(&buf, &msg, &prop);
-	if (rc != EXIT_SUCCESS) {
+	rc = m5_pack_publish(&ctx, &buf, &msg, &prop);
+	if (rc != M5_SUCCESS) {
 		DBG("m5_pack_publish");
 		exit(1);
 	}
 
 	buf.offset = 0;
-	rc = m5_unpack_publish(&buf, &msg2, &prop2);
-	if (rc != EXIT_SUCCESS) {
+	rc = m5_unpack_publish(&ctx, &buf, &msg2, &prop2);
+	if (rc != M5_SUCCESS) {
 		DBG("m5_unpack_publish");
 		exit(1);
 	}
@@ -676,7 +677,7 @@ static void test_m5_publish(void)
 	print_prop(&prop2);
 
 	rc = cmp_prop(&prop, &prop2);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		DBG("cmp_prop");
 		exit(1);
 	}
@@ -701,7 +702,7 @@ static int compare_topics(struct m5_topics *t1, struct m5_topics *t2)
 
 	if (t1->items != t2->items) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
-		return -EINVAL;
+		return M5_INVALID_ARGUMENT;
 	}
 
 	for (i = 0; i < t1->items; i++) {
@@ -709,11 +710,11 @@ static int compare_topics(struct m5_topics *t1, struct m5_topics *t2)
 			     t2->topics[i], t2->len[i]);
 		if (rc != 0) {
 			printf("[%s:%d]\n", __FILE__, __LINE__);
-			return -EINVAL;
+			return M5_INVALID_ARGUMENT;
 		}
 	}
 
-	return EXIT_SUCCESS;
+	return M5_SUCCESS;
 }
 
 static void test_m5_subscribe(void)
@@ -743,8 +744,8 @@ static void test_m5_subscribe(void)
 	msg.topics.len = topics_len;
 
 	m5_prop_subscription_id(&prop, 0x1234);
-	rc = m5_pack_subscribe(&buf, &msg, &prop);
-	if (rc != EXIT_SUCCESS) {
+	rc = m5_pack_subscribe(&ctx, &buf, &msg, &prop);
+	if (rc != M5_SUCCESS) {
 		DBG("m5_pack_subscribe");
 		exit(1);
 	}
@@ -760,8 +761,8 @@ static void test_m5_subscribe(void)
 	msg2.topics.size = 3;
 
 	buf.offset = 0;
-	rc = m5_unpack_subscribe(&buf, &msg2, &prop2);
-	if (rc != EXIT_SUCCESS) {
+	rc = m5_unpack_subscribe(&ctx, &buf, &msg2, &prop2);
+	if (rc != M5_SUCCESS) {
 		DBG("m5_unpack_subscribe");
 		exit(1);
 	}
@@ -769,13 +770,13 @@ static void test_m5_subscribe(void)
 	print_prop(&prop2);
 
 	rc = cmp_prop(&prop, &prop2);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		DBG("cmp_prop");
 		exit(1);
 	}
 
 	rc = compare_topics(&msg.topics, &msg2.topics);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		DBG("compare_topics");
 		exit(1);
 	}
@@ -805,14 +806,14 @@ static void test_m5_suback(void)
 	for (i = 0; i < M5_USER_PROP_SIZE; i++) {
 		rc = m5_prop_add_user_prop(&prop, (uint8_t *)"hello", 5,
 						  (uint8_t *)"world!", 6);
-		if (rc != EXIT_SUCCESS) {
+		if (rc != M5_SUCCESS) {
 			DBG("m5_prop_add_user_prop");
 			exit(1);
 		}
 	}
 
-	rc = m5_pack_suback(&buf, &msg, &prop);
-	if (rc != EXIT_SUCCESS) {
+	rc = m5_pack_suback(&ctx, &buf, &msg, &prop);
+	if (rc != M5_SUCCESS) {
 		DBG("m5_pack_suback");
 		exit(1);
 	}
@@ -826,8 +827,8 @@ static void test_m5_suback(void)
 	msg2.rc = reason_code2;
 
 	buf.offset = 0;
-	rc = m5_unpack_suback(&buf, &msg2, &prop2);
-	if (rc != EXIT_SUCCESS) {
+	rc = m5_unpack_suback(&ctx, &buf, &msg2, &prop2);
+	if (rc != M5_SUCCESS) {
 		DBG("m5_unpack_suback");
 		exit(1);
 	}
@@ -835,7 +836,7 @@ static void test_m5_suback(void)
 	print_prop(&prop2);
 
 	rc = cmp_prop(&prop, &prop2);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		DBG("cmp_prop");
 		exit(1);
 	}
@@ -862,8 +863,8 @@ static void test_m5_unsubscribe(void)
 	msg.topics.topics = topics;
 	msg.topics.len = topics_len;
 
-	rc = m5_pack_unsubscribe(&buf, &msg);
-	if (rc != EXIT_SUCCESS) {
+	rc = m5_pack_unsubscribe(&ctx, &buf, &msg);
+	if (rc != M5_SUCCESS) {
 		DBG("m5_pack_unsubscribe");
 		exit(1);
 	}
@@ -877,14 +878,14 @@ static void test_m5_unsubscribe(void)
 	msg2.topics.size = 3;
 
 	buf.offset = 0;
-	rc = m5_unpack_unsubscribe(&buf, &msg2);
-	if (rc != EXIT_SUCCESS) {
+	rc = m5_unpack_unsubscribe(&ctx, &buf, &msg2);
+	if (rc != M5_SUCCESS) {
 		DBG("m5_unpack_unsubscribe");
 		exit(1);
 	}
 
 	rc = compare_topics(&msg.topics, &msg2.topics);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		DBG("compare_topics");
 		exit(1);
 	}
@@ -915,14 +916,14 @@ static void test_m5_unsuback(void)
 	for (i = 0; i < M5_USER_PROP_SIZE; i++) {
 		rc = m5_prop_add_user_prop(&prop, (uint8_t *)"hello", 5,
 						  (uint8_t *)"world!", 6);
-		if (rc != EXIT_SUCCESS) {
+		if (rc != M5_SUCCESS) {
 			DBG("m5_prop_add_user_prop");
 			exit(1);
 		}
 	}
 
-	rc = m5_pack_unsuback(&buf, &msg, &prop);
-	if (rc != EXIT_SUCCESS) {
+	rc = m5_pack_unsuback(&ctx, &buf, &msg, &prop);
+	if (rc != M5_SUCCESS) {
 		DBG("m5_pack_unsuback");
 		exit(1);
 	}
@@ -932,14 +933,14 @@ static void test_m5_unsuback(void)
 	print_prop(&prop);
 
 	buf.offset = 0;
-	rc = m5_unpack_unsuback(&buf, &msg2, &prop2);
-	if (rc != EXIT_SUCCESS) {
+	rc = m5_unpack_unsuback(&ctx, &buf, &msg2, &prop2);
+	if (rc != M5_SUCCESS) {
 		DBG("m5_unpack_unsuback");
 		exit(1);
 	}
 
 	rc = cmp_prop(&prop, &prop2);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		DBG("cmp_prop");
 		exit(1);
 	}
@@ -953,8 +954,8 @@ static void test_m5_pings(void)
 
 	TEST_HDR(__func__);
 
-	rc = m5_pack_pingreq(&buf);
-	if (rc != EXIT_SUCCESS) {
+	rc = m5_pack_pingreq(&ctx, &buf);
+	if (rc != M5_SUCCESS) {
 		DBG("m5_pack_pingreq");
 		exit(1);
 	}
@@ -962,16 +963,16 @@ static void test_m5_pings(void)
 	print_buf(&buf);
 
 	buf.offset = 0;
-	rc = m5_unpack_pingreq(&buf);
-	if (rc != EXIT_SUCCESS) {
+	rc = m5_unpack_pingreq(&ctx, &buf);
+	if (rc != M5_SUCCESS) {
 		DBG("m5_unpack_pingreq");
 		exit(1);
 	}
 
 	buf.offset = 0;
 	buf.len = 0;
-	rc = m5_pack_pingresp(&buf);
-	if (rc != EXIT_SUCCESS) {
+	rc = m5_pack_pingresp(&ctx, &buf);
+	if (rc != M5_SUCCESS) {
 		DBG("m5_pack_pingresp");
 		exit(1);
 	}
@@ -979,8 +980,8 @@ static void test_m5_pings(void)
 	print_buf(&buf);
 
 	buf.offset = 0;
-	rc = m5_unpack_pingresp(&buf);
-	if (rc != EXIT_SUCCESS) {
+	rc = m5_unpack_pingresp(&ctx, &buf);
+	if (rc != M5_SUCCESS) {
 		DBG("m5_unpack_pingresp");
 		exit(1);
 	}
@@ -1003,7 +1004,7 @@ static void test_m5_disconnect(void)
 	for (i = 0; i < M5_USER_PROP_SIZE; i++) {
 		rc = m5_prop_add_user_prop(&prop, (uint8_t *)"hello", 5,
 						  (uint8_t *)"world!", 6);
-		if (rc != EXIT_SUCCESS) {
+		if (rc != M5_SUCCESS) {
 			DBG("m5_prop_add_user_prop");
 			exit(1);
 		}
@@ -1011,15 +1012,15 @@ static void test_m5_disconnect(void)
 	m5_prop_server_reference(&prop, (uint8_t *)"reference", 9);
 
 	m5_prop_session_expiry_interval(&prop, 0x1234);
-	rc = m5_pack_disconnect(&buf, M5_RC_PROTOCOL_ERROR, &prop);
-	if (rc != EXIT_SUCCESS) {
+	rc = m5_pack_disconnect(&ctx, &buf, M5_RC_PROTOCOL_ERROR, &prop);
+	if (rc != M5_SUCCESS) {
 		DBG("m5_pack_disconnect");
 		exit(1);
 	}
 
 	buf.offset = 0;
-	rc = m5_unpack_disconnect(&buf, &reason_code, &prop2);
-	if (rc != EXIT_SUCCESS) {
+	rc = m5_unpack_disconnect(&ctx, &buf, &reason_code, &prop2);
+	if (rc != M5_SUCCESS) {
 		DBG("m5_unpack_disconnect");
 		exit(1);
 	}
@@ -1030,7 +1031,7 @@ static void test_m5_disconnect(void)
 	print_prop(&prop2);
 
 	rc = cmp_prop(&prop, &prop2);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		DBG("cmp_prop");
 		exit(1);
 	}
@@ -1053,20 +1054,20 @@ static void test_m5_auth(void)
 	for (i = 0; i < M5_USER_PROP_SIZE; i++) {
 		rc = m5_prop_add_user_prop(&prop, (uint8_t *)"hello", 5,
 						  (uint8_t *)"world!", 6);
-		if (rc != EXIT_SUCCESS) {
+		if (rc != M5_SUCCESS) {
 			DBG("m5_prop_add_user_prop");
 			exit(1);
 		}
 	}
-	rc = m5_pack_auth(&buf, M5_RC_CONTINUE_AUTHENTICATION, &prop);
-	if (rc != EXIT_SUCCESS) {
+	rc = m5_pack_auth(&ctx, &buf, M5_RC_CONTINUE_AUTHENTICATION, &prop);
+	if (rc != M5_SUCCESS) {
 		DBG("m5_pack_auth");
 		exit(1);
 	}
 
 	buf.offset = 0;
-	rc = m5_unpack_auth(&buf, &ret_code, &prop2);
-	if (rc != EXIT_SUCCESS) {
+	rc = m5_unpack_auth(&ctx, &buf, &ret_code, &prop2);
+	if (rc != M5_SUCCESS) {
 		DBG("m5_unpack_auth");
 		exit(1);
 	}
@@ -1077,7 +1078,7 @@ static void test_m5_auth(void)
 	print_prop(&prop2);
 
 	rc = cmp_prop(&prop, &prop2);
-	if (rc != EXIT_SUCCESS) {
+	if (rc != M5_SUCCESS) {
 		DBG("cmp_prop");
 		exit(1);
 	}

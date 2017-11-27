@@ -44,6 +44,26 @@
 #include <inttypes.h>
 #include <stddef.h>
 
+enum m5_status {
+	M5_SUCCESS = 0,
+	M5_INVALID_ARGUMENT,
+	M5_INVALID_NULL_ARGUMENT,
+	M5_NOT_ENOUGH_SPACE_IN_BUFFER,
+	M5_INVALID_FIXED_HEADER,
+	M5_INVALID_VARIABLE_HEADER,
+	M5_INVALID_PAYLOAD,
+	M5_INVALID_REMLEN_VBI,
+	M5_INVALID_PROPERTIES,
+	M5_INVALID_PROPERTY_VBI,
+	M5_FINISHED_READING_INVALID_LENGTH,
+	M5_FINISHED_WRITING_INVALID_LENGTH,
+};
+
+struct m5_ctx {
+	enum m5_status status;
+	/* will have more fields in future releases */
+};
+
 /*
  * App buffer data structure
  */
@@ -332,88 +352,92 @@ void m5_prop_subscription_id_available(struct m5_prop *prop, uint8_t v);
 
 void m5_prop_shared_subscription_available(struct m5_prop *prop, uint8_t v);
 
-int m5_pack_connect(struct app_buf *buf, struct m5_connect *msg,
-		    struct m5_prop *prop);
+/* MQTT v5.0 Control Packet routines */
 
-int m5_unpack_connect(struct app_buf *buf, struct m5_connect *msg,
-		      struct m5_prop *prop);
+int m5_pack_connect(struct m5_ctx *ctx, struct app_buf *buf,
+		    struct m5_connect *msg, struct m5_prop *prop);
 
-int m5_pack_connack(struct app_buf *buf, struct m5_connack *msg,
-		    struct m5_prop *prop);
+int m5_unpack_connect(struct m5_ctx *ctx, struct app_buf *buf,
+		      struct m5_connect *msg, struct m5_prop *prop);
 
-int m5_unpack_connack(struct app_buf *buf, struct m5_connack *msg,
-		      struct m5_prop *prop);
+int m5_pack_connack(struct m5_ctx *ctx, struct app_buf *buf,
+		    struct m5_connack *msg, struct m5_prop *prop);
 
-int m5_pack_publish(struct app_buf *buf, struct m5_publish *msg,
-		    struct m5_prop *prop);
+int m5_unpack_connack(struct m5_ctx *ctx, struct app_buf *buf,
+		      struct m5_connack *msg, struct m5_prop *prop);
 
-int m5_unpack_publish(struct app_buf *buf, struct m5_publish *msg,
-		      struct m5_prop *prop);
+int m5_pack_publish(struct m5_ctx *ctx, struct app_buf *buf,
+		    struct m5_publish *msg, struct m5_prop *prop);
 
-int m5_pack_puback(struct app_buf *buf, struct m5_pub_response *msg,
-		   struct m5_prop *prop);
+int m5_unpack_publish(struct m5_ctx *ctx, struct app_buf *buf,
+		      struct m5_publish *msg, struct m5_prop *prop);
 
-int m5_unpack_puback(struct app_buf *buf, struct m5_pub_response *msg,
-		     struct m5_prop *prop);
+int m5_pack_puback(struct m5_ctx *ctx, struct app_buf *buf,
+		   struct m5_pub_response *msg, struct m5_prop *prop);
 
-int m5_pack_pubrec(struct app_buf *buf, struct m5_pub_response *msg,
-		   struct m5_prop *prop);
+int m5_unpack_puback(struct m5_ctx *ctx, struct app_buf *buf,
+		     struct m5_pub_response *msg, struct m5_prop *prop);
 
-int m5_unpack_pubrec(struct app_buf *buf, struct m5_pub_response *msg,
-		     struct m5_prop *prop);
+int m5_pack_pubrec(struct m5_ctx *ctx, struct app_buf *buf,
+		   struct m5_pub_response *msg, struct m5_prop *prop);
 
-int m5_pack_pubrel(struct app_buf *buf, struct m5_pub_response *msg,
-		   struct m5_prop *prop);
+int m5_unpack_pubrec(struct m5_ctx *ctx, struct app_buf *buf,
+		     struct m5_pub_response *msg, struct m5_prop *prop);
 
-int m5_unpack_pubrel(struct app_buf *buf, struct m5_pub_response *msg,
-		     struct m5_prop *prop);
+int m5_pack_pubrel(struct m5_ctx *ctx, struct app_buf *buf,
+		   struct m5_pub_response *msg, struct m5_prop *prop);
 
-int m5_pack_pubcomp(struct app_buf *buf, struct m5_pub_response *msg,
-		    struct m5_prop *prop);
+int m5_unpack_pubrel(struct m5_ctx *ctx, struct app_buf *buf,
+		     struct m5_pub_response *msg, struct m5_prop *prop);
 
-int m5_unpack_pubcomp(struct app_buf *buf, struct m5_pub_response *msg,
-		      struct m5_prop *prop);
+int m5_pack_pubcomp(struct m5_ctx *ctx, struct app_buf *buf,
+		    struct m5_pub_response *msg, struct m5_prop *prop);
 
-int m5_pack_subscribe(struct app_buf *buf, struct m5_subscribe *msg,
-		      struct m5_prop *prop);
+int m5_unpack_pubcomp(struct m5_ctx *ctx, struct app_buf *buf,
+		      struct m5_pub_response *msg, struct m5_prop *prop);
 
-int m5_unpack_subscribe(struct app_buf *buf, struct m5_subscribe *msg,
-			struct m5_prop *prop);
+int m5_pack_subscribe(struct m5_ctx *ctx, struct app_buf *buf,
+		      struct m5_subscribe *msg, struct m5_prop *prop);
 
-int m5_pack_suback(struct app_buf *buf, struct m5_suback *msg,
-		    struct m5_prop *prop);
+int m5_unpack_subscribe(struct m5_ctx *ctx, struct app_buf *buf,
+			struct m5_subscribe *msg, struct m5_prop *prop);
 
-int m5_unpack_suback(struct app_buf *buf, struct m5_suback *msg,
-		     struct m5_prop *prop);
+int m5_pack_suback(struct m5_ctx *ctx, struct app_buf *buf,
+		   struct m5_suback *msg, struct m5_prop *prop);
 
-int m5_pack_unsubscribe(struct app_buf *buf, struct m5_unsubscribe *msg);
+int m5_unpack_suback(struct m5_ctx *ctx, struct app_buf *buf,
+		     struct m5_suback *msg, struct m5_prop *prop);
 
-int m5_unpack_unsubscribe(struct app_buf *buf, struct m5_unsubscribe *msg);
+int m5_pack_unsubscribe(struct m5_ctx *ctx, struct app_buf *buf,
+			struct m5_unsubscribe *msg);
 
-int m5_pack_unsuback(struct app_buf *buf, struct m5_suback *msg,
-		     struct m5_prop *prop);
+int m5_unpack_unsubscribe(struct m5_ctx *ctx, struct app_buf *buf,
+			  struct m5_unsubscribe *msg);
 
-int m5_unpack_unsuback(struct app_buf *buf, struct m5_suback *msg,
-		       struct m5_prop *prop);
+int m5_pack_unsuback(struct m5_ctx *ctx, struct app_buf *buf,
+		     struct m5_suback *msg, struct m5_prop *prop);
 
-int m5_pack_pingreq(struct app_buf *buf);
+int m5_unpack_unsuback(struct m5_ctx *ctx, struct app_buf *buf,
+		       struct m5_suback *msg, struct m5_prop *prop);
 
-int m5_pack_pingresp(struct app_buf *buf);
+int m5_pack_pingreq(struct m5_ctx *ctx, struct app_buf *buf);
 
-int m5_unpack_pingreq(struct app_buf *buf);
+int m5_pack_pingresp(struct m5_ctx *ctx, struct app_buf *buf);
 
-int m5_unpack_pingresp(struct app_buf *buf);
+int m5_unpack_pingreq(struct m5_ctx *ctx, struct app_buf *buf);
 
-int m5_pack_disconnect(struct app_buf *buf, uint8_t reason_code,
-		       struct m5_prop *prop);
+int m5_unpack_pingresp(struct m5_ctx *ctx, struct app_buf *buf);
 
-int m5_unpack_disconnect(struct app_buf *buf, uint8_t *reason_code,
-			 struct m5_prop *prop);
+int m5_pack_disconnect(struct m5_ctx *ctx, struct app_buf *buf,
+		       uint8_t reason_code, struct m5_prop *prop);
 
-int m5_pack_auth(struct app_buf *buf, uint8_t reason_code,
-		 struct m5_prop *prop);
+int m5_unpack_disconnect(struct m5_ctx *ctx, struct app_buf *buf,
+			 uint8_t *reason_code, struct m5_prop *prop);
 
-int m5_unpack_auth(struct app_buf *buf, uint8_t *reason_code,
-		   struct m5_prop *prop);
+int m5_pack_auth(struct m5_ctx *ctx, struct app_buf *buf,
+		 uint8_t reason_code, struct m5_prop *prop);
+
+int m5_unpack_auth(struct m5_ctx *ctx, struct app_buf *buf,
+		   uint8_t *reason_code, struct m5_prop *prop);
 
 #endif
