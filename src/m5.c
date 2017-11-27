@@ -2008,53 +2008,6 @@ static int m5_unpack_topics(struct app_buf *buf, struct m5_topics *topics,
 	return EXIT_SUCCESS;
 }
 
-int m5_unpack_unsubscribe(struct app_buf *buf, struct m5_unsubscribe *msg)
-{
-	const uint8_t unsubscribe_first_byte = (M5_PKT_UNSUBSCRIBE << 4) | 0x02;
-	uint32_t payload_wsize;
-	uint32_t fixed_header;
-	uint32_t already_read;
-	uint32_t rlen_wsize;
-	uint8_t first;
-	uint32_t rlen;
-	int rc;
-
-	if (buf == NULL || msg == NULL) {
-		return -EINVAL;
-	}
-
-	already_read = buf->offset;
-
-	rc = m5_unpack_u8(buf, &first);
-	if (rc != EXIT_SUCCESS || first != unsubscribe_first_byte) {
-		return -EINVAL;
-	}
-
-	rc = m5_decode_int(buf, &rlen, &rlen_wsize);
-	if (rc != EXIT_SUCCESS || buf->offset + rlen > buf->len) {
-		return -EINVAL;
-	}
-
-	rc = m5_unpack_u16(buf, &msg->packet_id);
-	if (rc != EXIT_SUCCESS || msg->packet_id == 0) {
-		return -EINVAL;
-	}
-
-	fixed_header = M5_PACKET_TYPE_WSIZE + rlen_wsize;
-	payload_wsize = rlen - (buf->offset - fixed_header);
-
-	rc = m5_unpack_topics(buf, &msg->topics, payload_wsize);
-	if (rc != EXIT_SUCCESS) {
-		return rc;
-	}
-
-	if (buf->offset - already_read != rlen + fixed_header) {
-		return -EINVAL;
-	}
-
-	return EXIT_SUCCESS;
-}
-
 int m5_pack_unsuback(struct app_buf *buf, struct m5_suback *msg,
 		     struct m5_prop *prop)
 {
@@ -3082,3 +3035,54 @@ static int m5_unpack_suback_unsuback(struct app_buf *buf,
 
 	return unpack(buf, &unpack_info, msg, prop);
 }
+
+static int unpack_unsubscribe_var_hdr(struct app_buf *buf,
+				      struct unpack_info *unpack_info,
+				      void *data, struct m5_prop *prop)
+{
+	struct m5_unsubscribe *msg = (struct m5_unsubscribe *)data;
+	int rc;
+
+	ARG_UNUSED(unpack_info);
+	ARG_UNUSED(prop);
+
+	rc = m5_unpack_u16(buf, &msg->packet_id);
+	if (rc != EXIT_SUCCESS || msg->packet_id == 0) {
+		return -EINVAL;
+	}
+
+	return EXIT_SUCCESS;
+}
+
+static int unpack_unsubscribe_payload(struct app_buf *buf,
+					  struct unpack_info *unpack_info,
+					  void *data)
+{
+	struct m5_unsubscribe *msg = (struct m5_unsubscribe *)data;
+	int rc;
+
+	if (unpack_info->payload_size == 0) {
+		return -EINVAL;
+	}
+
+	rc = m5_unpack_topics(buf, &msg->topics, unpack_info->payload_size);
+	if (rc != EXIT_SUCCESS) {
+		return rc;
+	}
+
+	return EXIT_SUCCESS;
+}
+
+int m5_unpack_unsubscribe(struct app_buf *buf, struct m5_unsubscribe *msg)
+{
+	struct unpack_info unpack_info = {
+		.fixed_hdr = unpack_fixed_hdr,
+		.var_hdr = unpack_unsubscribe_var_hdr,
+		.payload = unpack_unsubscribe_payload,
+
+		.pkt_type = M5_PKT_UNSUBSCRIBE,
+		.fixed_hdr_reserved = 0x02 };
+
+	return unpack(buf, &unpack_info, msg, NULL);
+}
+
