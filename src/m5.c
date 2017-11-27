@@ -2099,68 +2099,7 @@ int m5_unpack_pingresp(struct m5_ctx *ctx, struct app_buf *buf)
 
 static int m5_pack_disconnect_auth(struct m5_ctx *ctx, struct app_buf *buf,
 				   uint8_t reason_code, struct m5_prop *prop,
-				   enum m5_pkt_type type)
-{
-	uint32_t prop_wsize_wsize;
-	uint32_t rlen_wsize = 0;
-	uint32_t full_msg_size;
-	uint32_t prop_wsize;
-	uint32_t rlen;
-	int rc;
-
-	ARG_UNUSED(ctx);
-
-	if (buf == NULL) {
-		return M5_INVALID_ARGUMENT;
-	}
-
-	rc = m5_prop_wsize(type, prop, &prop_wsize);
-	if (rc != M5_SUCCESS) {
-		return rc;
-	}
-
-	rc = m5_rlen_wsize(prop_wsize, &prop_wsize_wsize);
-	if (rc != M5_SUCCESS) {
-		return rc;
-	}
-
-	rlen = 0;
-	if (prop_wsize > 0) {
-		rlen += prop_wsize_wsize + prop_wsize;
-	}
-
-	if (rlen > 0 || reason_code != M5_RC_SUCCESS) {
-		rlen += 1;
-	}
-
-	if (rlen > 0) {
-		rc = m5_rlen_wsize(rlen, &rlen_wsize);
-		if (rc != M5_SUCCESS) {
-			return rc;
-		}
-	}
-
-	full_msg_size = M5_PACKET_TYPE_WSIZE + rlen + rlen_wsize;
-	if (APPBUF_FREE_WRITE_SPACE(buf) < full_msg_size) {
-		return M5_NOT_ENOUGH_SPACE_IN_BUFFER;
-	}
-
-	m5_add_u8(buf, type << 4);
-	m5_encode_int(buf, rlen);
-
-	if (rlen > 0) {
-		m5_add_u8(buf, reason_code);
-
-		if (rlen > 1) {
-			rc = m5_pack_prop(buf, prop, prop_wsize);
-			if (rc != M5_SUCCESS) {
-				return rc;
-			}
-		}
-	}
-
-	return M5_SUCCESS;
-}
+				   enum m5_pkt_type type);
 
 int m5_pack_disconnect(struct m5_ctx *ctx, struct app_buf *buf,
 		       uint8_t reason_code, struct m5_prop *prop)
@@ -2642,6 +2581,52 @@ int m5_pack_unsubscribe(struct m5_ctx *ctx, struct app_buf *buf,
 	}
 
 	return pack(ctx, buf, &pack_info, msg, NULL);
+}
+
+static int pack_disconnect_auth_var_hdr(struct app_buf *buf,
+					struct pack_info *pack_info,
+					void *data,
+					struct m5_prop *prop)
+{
+	uint8_t reason_code = *(uint8_t *)data;
+	int rc;
+
+	if (pack_info->remlen > 0) {
+		m5_add_u8(buf, reason_code);
+
+		if (pack_info->remlen > 1) {
+			rc = m5_pack_prop(buf, prop, pack_info->prop_wsize);
+			if (rc != M5_SUCCESS) {
+				return rc;
+			}
+		}
+	}
+
+	return M5_SUCCESS;
+}
+
+static int m5_pack_disconnect_auth(struct m5_ctx *ctx,
+				   struct app_buf *buf,
+				   uint8_t reason_code,
+				   struct m5_prop *prop,
+				   enum m5_pkt_type type)
+{
+	struct pack_info pack_info = {
+		.pkt_type = type,
+		.fixed_hdr_reserved = 0x00,
+		.has_properties = 1,
+		.var_hdr_size = 1,
+		.fixed_hdr = pack_fixed_hdr,
+		.var_hdr = pack_disconnect_auth_var_hdr,
+		.payload = NULL,
+	};
+
+	if (prop == NULL && reason_code == 0) {
+		pack_info.has_properties = 0;
+		pack_info.var_hdr_size = 0;
+	}
+
+	return pack(ctx, buf, &pack_info, &reason_code, prop);
 }
 
 static int unpack(struct m5_ctx *ctx,
