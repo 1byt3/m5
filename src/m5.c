@@ -2172,69 +2172,7 @@ int m5_pack_disconnect(struct m5_ctx *ctx, struct app_buf *buf,
 
 static int m5_unpack_disconnect_auth(struct m5_ctx *ctx, struct app_buf *buf,
 				     uint8_t *reason_code, struct m5_prop *prop,
-				     enum m5_pkt_type type)
-{
-	uint32_t fixed_header;
-	uint32_t already_read;
-	uint32_t rlen_wsize;
-	uint8_t number;
-	uint32_t rlen;
-	int rc;
-
-	if (buf == NULL || reason_code == NULL) {
-		rc = M5_INVALID_NULL_ARGUMENT;
-		goto lb_exit;
-	}
-
-	already_read = buf->offset;
-
-	rc = m5_unpack_u8(buf, &number);
-	if (rc != M5_SUCCESS || number != (type << 4)) {
-		rc = M5_INVALID_FIXED_HEADER;
-		goto lb_exit;
-	}
-
-	rc = m5_decode_int(buf, &rlen, &rlen_wsize);
-	if (rc != M5_SUCCESS || buf->offset + rlen > buf->len) {
-		rc = M5_INVALID_REMLEN_VBI;
-		goto lb_exit;
-	}
-
-	if (rlen == 0) {
-		*reason_code = 0x00;
-		goto lb_exit_ok;
-	}
-
-	rc = m5_unpack_u8(buf, &number);
-	if (rc != M5_SUCCESS) {
-		rc = M5_INVALID_VARIABLE_HEADER;
-		goto lb_exit;
-	}
-
-	*reason_code = number;
-
-	if (rlen > 1) {
-		rc = m5_unpack_prop(buf, prop, type);
-		if (rc != M5_SUCCESS) {
-			rc = M5_INVALID_PROPERTIES;
-			goto lb_exit;
-		}
-	}
-
-	fixed_header = M5_PACKET_TYPE_WSIZE + rlen_wsize;
-	if (buf->offset - already_read != rlen + fixed_header) {
-		rc = M5_FINISHED_READING_INVALID_LENGTH;
-		goto lb_exit;
-	}
-
-lb_exit_ok:
-	rc = M5_SUCCESS;
-
-lb_exit:
-	m5_ctx_status(ctx, rc);
-
-	return rc;
-}
+				     enum m5_pkt_type type);
 
 int m5_unpack_disconnect(struct m5_ctx *ctx, struct app_buf *buf,
 			 uint8_t *reason_code, struct m5_prop *prop)
@@ -2669,6 +2607,7 @@ struct unpack_info {
 	uint8_t fixed_hdr_reserved;
 	enum m5_pkt_type pkt_type;
 	uint32_t payload_size;
+	uint32_t remlen;
 };
 
 static int unpack(struct m5_ctx *ctx,
@@ -2700,6 +2639,8 @@ static int unpack(struct m5_ctx *ctx,
 		rc = M5_INVALID_REMLEN_VBI;
 		goto lb_exit;
 	}
+
+	unpack_info->remlen = rlen;
 
 	if (APPBUF_FREE_READ_SPACE(buf) < rlen) {
 		return M5_NOT_ENOUGH_SPACE_IN_BUFFER;
@@ -3160,3 +3101,50 @@ int m5_unpack_unsubscribe(struct m5_ctx *ctx, struct app_buf *buf,
 	return unpack(ctx, buf, &unpack_info, msg, NULL);
 }
 
+static int unpack_disconnect_auth_var_hdr(struct app_buf *buf,
+					  struct unpack_info *unpack_info,
+					  void *data, struct m5_prop *prop)
+{
+	uint8_t *reason_code = (uint8_t *)data;
+	int rc;
+
+	if (unpack_info->remlen == 0) {
+		*reason_code = 0x00;
+		goto lb_exit_ok;
+	}
+
+	rc = m5_unpack_u8(buf, reason_code);
+	if (rc != M5_SUCCESS) {
+		rc = M5_INVALID_VARIABLE_HEADER;
+		goto lb_exit;
+	}
+
+	if (unpack_info->remlen > 1) {
+		rc = m5_unpack_prop(buf, prop, unpack_info->pkt_type);
+		if (rc != M5_SUCCESS) {
+			rc = M5_INVALID_PROPERTIES;
+			goto lb_exit;
+		}
+	}
+
+lb_exit_ok:
+	rc = M5_SUCCESS;
+
+lb_exit:
+	return rc;
+}
+
+static int m5_unpack_disconnect_auth(struct m5_ctx *ctx, struct app_buf *buf,
+				     uint8_t *reason_code, struct m5_prop *prop,
+				     enum m5_pkt_type type)
+{
+	struct unpack_info unpack_info = {
+		.fixed_hdr = unpack_fixed_hdr,
+		.var_hdr = unpack_disconnect_auth_var_hdr,
+		.payload = NULL,
+
+		.pkt_type = type,
+		.fixed_hdr_reserved = 0x00 };
+
+	return unpack(ctx, buf, &unpack_info, reason_code, prop);
+}
