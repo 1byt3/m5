@@ -189,7 +189,7 @@ static void test_int_encoding(void)
 static void test_m5_add_u16(void)
 {
 	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
-			       .size = sizeof(data)};
+			       .size = sizeof(data) };
 
 	TEST_HDR(__func__);
 
@@ -206,7 +206,7 @@ static void test_m5_add_u16(void)
 static void test_m5_add_str(void)
 {
 	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
-			       .size = sizeof(data)};
+			       .size = sizeof(data) };
 	const char *str = "Hello, World!";
 
 	TEST_HDR(__func__);
@@ -406,7 +406,7 @@ static int cmp_prop(struct m5_prop *p1, struct m5_prop *p2)
 static void test_m5_connect(void)
 {
 	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
-			       .size = sizeof(data)};
+			       .size = sizeof(data) };
 	char *will_msg = "will msg payload";
 	char *client_id = "m5_client";
 	char *will_topic = "sensors";
@@ -560,7 +560,7 @@ static void print_prop(struct m5_prop *p)
 static void test_m5_connack(void)
 {
 	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
-			       .size = sizeof(data)};
+			       .size = sizeof(data) };
 	struct m5_connack msg = { 0 };
 	struct m5_prop prop2 = { 0 };
 	struct m5_prop prop = { 0 };
@@ -624,7 +624,7 @@ static void test_m5_connack(void)
 static void test_m5_publish(void)
 {
 	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
-			       .size = sizeof(data)};
+			       .size = sizeof(data) };
 	struct m5_publish msg2 = { 0 };
 	struct m5_publish msg = { 0 };
 	struct m5_prop prop2 = { 0 };
@@ -720,7 +720,7 @@ static int compare_topics(struct m5_topics *t1, struct m5_topics *t2)
 static void test_m5_subscribe(void)
 {
 	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
-			       .size = sizeof(data)};
+			       .size = sizeof(data) };
 	uint8_t *topics[] = {(uint8_t *)"sensors", (uint8_t *)"doors",
 			     (uint8_t *)"windows"};
 	uint8_t options[] = {M5_QoS0, M5_QoS1, M5_QoS2};
@@ -785,7 +785,7 @@ static void test_m5_subscribe(void)
 static void test_m5_suback(void)
 {
 	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
-			       .size = sizeof(data)};
+			       .size = sizeof(data) };
 	uint8_t reason_code[] = {M5_QoS0, M5_QoS1, M5_QoS2};
 	struct m5_suback msg2 = { 0 };
 	struct m5_suback msg = { 0 };
@@ -845,7 +845,7 @@ static void test_m5_suback(void)
 static void test_m5_unsubscribe(void)
 {
 	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
-			       .size = sizeof(data)};
+			       .size = sizeof(data) };
 	uint8_t *topics[] = {(uint8_t *)"sensors", (uint8_t *)"doors",
 			     (uint8_t *)"windows"};
 	struct m5_unsubscribe msg2 = { 0 };
@@ -894,7 +894,7 @@ static void test_m5_unsubscribe(void)
 static void test_m5_unsuback(void)
 {
 	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
-			       .size = sizeof(data)};
+			       .size = sizeof(data) };
 	uint8_t reason_code[] = {M5_QoS0, M5_QoS1, M5_QoS2};
 	uint8_t reason_code_read[3];
 	struct m5_prop prop2 = { 0 };
@@ -949,7 +949,7 @@ static void test_m5_unsuback(void)
 static void test_m5_pings(void)
 {
 	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
-			       .size = sizeof(data)};
+			       .size = sizeof(data) };
 	int rc;
 
 	TEST_HDR(__func__);
@@ -990,7 +990,7 @@ static void test_m5_pings(void)
 static void test_m5_disconnect(void)
 {
 	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
-			       .size = sizeof(data)};
+			       .size = sizeof(data) };
 	struct m5_prop prop2 = { 0 };
 	struct m5_prop prop = { 0 };
 	uint8_t reason_code;
@@ -1095,7 +1095,7 @@ static void test_m5_auth_short(void)
 static void test_m5_auth(void)
 {
 	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
-			       .size = sizeof(data)};
+			       .size = sizeof(data) };
 	struct m5_prop prop2 = { 0 };
 	struct m5_prop prop = { 0 };
 	uint8_t ret_code;
