@@ -718,6 +718,7 @@ static void test_m5_publish_full(void)
 		exit(1);
 	}
 
+	printf("PUBLISH\n");
 	print_buf(&buf);
 
 	rc = cmp_publish(&msg, &msg2);
@@ -781,6 +782,7 @@ static void test_m5_publish_short(void)
 		exit(1);
 	}
 
+	printf("PUBLISH\n");
 	print_buf(&buf);
 }
 
@@ -852,7 +854,7 @@ static void test_m5_subscribe(void)
 		exit(1);
 	}
 
-	printf("Subscribe\n");
+	printf("SUBSCRIBE\n");
 	print_buf(&buf);
 
 	msg2.topics.items = 0;
@@ -1035,7 +1037,7 @@ static void test_m5_unsuback(void)
 
 typedef int (*ptr_ping)(struct m5_ctx *, struct app_buf *);
 
-static void test_m5_pings(ptr_ping pack, ptr_ping unpack)
+static void test_m5_pings(ptr_ping pack, ptr_ping unpack, const char *str)
 {
 	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
 			       .size = sizeof(data) };
@@ -1047,6 +1049,7 @@ static void test_m5_pings(ptr_ping pack, ptr_ping unpack)
 		exit(1);
 	}
 
+	printf("%s\n", str);
 	print_buf(&buf);
 
 	buf.offset = 0;
@@ -1061,14 +1064,14 @@ static void test_m5_pingreq(void)
 {
 	TEST_HDR(__func__);
 
-	test_m5_pings(m5_pack_pingreq, m5_unpack_pingreq);
+	test_m5_pings(m5_pack_pingreq, m5_unpack_pingreq, "PINGREQ");
 }
 
 static void test_m5_pingresp(void)
 {
 	TEST_HDR(__func__);
 
-	test_m5_pings(m5_pack_pingresp, m5_unpack_pingresp);
+	test_m5_pings(m5_pack_pingresp, m5_unpack_pingresp, "PINGRESP");
 }
 
 static void test_m5_disconnect(void)
