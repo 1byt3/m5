@@ -399,6 +399,13 @@ static int cmp_prop(struct m5_prop *p1, struct m5_prop *p2)
 	return M5_SUCCESS;
 }
 
+static int null_properties(struct m5_prop *a)
+{
+	struct m5_prop prop = { 0 };
+
+	return memcmp(a, &prop, sizeof(prop)) == 0 ? 1 : 0;
+}
+
 static void add_user_properties(struct m5_prop *prop)
 {
 	int rc;
@@ -625,7 +632,7 @@ static void test_m5_connack(void)
 	print_prop(&prop);
 }
 
-static void test_m5_publish(void)
+static void test_m5_publish_full(void)
 {
 	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
 			       .size = sizeof(data) };
@@ -671,11 +678,11 @@ static void test_m5_publish(void)
 	}
 
 	print_buf(&buf);
-	print_prop(&prop);
-	print_prop(&prop2);
 
 	rc = cmp_prop(&prop, &prop2);
 	if (rc != M5_SUCCESS) {
+		print_prop(&prop);
+		print_prop(&prop2);
 		DBG("cmp_prop");
 		exit(1);
 	}
@@ -684,6 +691,50 @@ static void test_m5_publish(void)
 	print_raw((void *)msg.payload, msg.payload_len);
 	printf("Publish unpacked payload: ");
 	print_raw((void *)msg2.payload, msg2.payload_len);
+}
+
+static void test_m5_publish_short(void)
+{
+	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
+			       .size = sizeof(data) };
+	struct m5_publish msg2 = { 0 };
+	struct m5_publish msg = { 0 };
+	struct m5_prop prop2 = { 0 };
+	int rc;
+
+	TEST_HDR(__func__);
+
+	msg.dup = 1;
+	msg.qos = M5_QoS0;
+	msg.retain = 1;
+	msg.topic_name = (uint8_t *)"topic";
+	msg.topic_name_len = strlen((char *)msg.topic_name);
+
+	rc = m5_pack_publish(&ctx, &buf, &msg, NULL);
+	if (rc != M5_SUCCESS) {
+		DBG("m5_pack_publish");
+		exit(1);
+	}
+
+	buf.offset = 0;
+	rc = m5_unpack_publish(&ctx, &buf, &msg2, &prop2);
+	if (rc != M5_SUCCESS) {
+		DBG("m5_unpack_publish");
+		exit(1);
+	}
+
+	if (null_properties(&prop2) != 1) {
+		DBG("m5_unpack_publish: properties");
+		exit(1);
+	}
+
+	print_buf(&buf);
+}
+
+static void test_m5_publish(void)
+{
+	test_m5_publish_short();
+	test_m5_publish_full();
 }
 
 /* XXX
