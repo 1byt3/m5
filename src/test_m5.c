@@ -177,6 +177,7 @@ static void test_int_encoding(void)
 	}
 
 	/* must fail */
+	DBG("The next test must fail");
 	rc = encode_decode(268435455 + 1);
 	if (rc == M5_SUCCESS) {
 		exit(rc);
