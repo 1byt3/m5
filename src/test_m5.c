@@ -421,6 +421,65 @@ static void add_user_properties(struct m5_prop *prop)
 	}
 }
 
+#define PROP_PRINT_INT(name)					\
+		printf("\t" #name": (0x%x) %u\n",		\
+		       p->_ ## name, p->_ ## name)
+
+#define PROP_PRINT_STR(name)					\
+		printf("\t" #name": (%u) %.*s\n",		\
+		       p->_ ## name ## _len,			\
+		       p->_ ## name ## _len,			\
+		       p->_ ## name ## _len == 0 ? NULL : p->_ ## name)
+
+#define PROP_PRINT_USER(idx)					\
+		printf("\tuser[%d] (%d) %.*s -> (%d) %.*s\n",	\
+		       idx,					\
+		       p->_user_prop[idx].key_len,		\
+		       p->_user_prop[idx].key_len,		\
+		       p->_user_prop[idx].key,			\
+		       p->_user_prop[idx].value_len,		\
+		       p->_user_prop[idx].value_len,		\
+		       p->_user_prop[idx].value)
+
+static void print_prop(struct m5_prop *p)
+{
+	uint32_t i;
+
+	printf("\nMQTT Properties\n");
+	PROP_PRINT_STR(auth_method);
+	PROP_PRINT_STR(auth_data);
+	PROP_PRINT_STR(content_type);
+	PROP_PRINT_STR(correlation_data);
+	PROP_PRINT_STR(response_info);
+	PROP_PRINT_STR(server_reference);
+	PROP_PRINT_STR(reason_str);
+	PROP_PRINT_STR(assigned_client_id);
+	PROP_PRINT_STR(response_topic);
+
+	PROP_PRINT_INT(max_packet_size);
+	PROP_PRINT_INT(publication_expiry_interval);
+	PROP_PRINT_INT(session_expiry_interval);
+	PROP_PRINT_INT(subscription_id);
+	PROP_PRINT_INT(will_delay_interval);
+	PROP_PRINT_INT(receive_max);
+	PROP_PRINT_INT(server_keep_alive);
+	PROP_PRINT_INT(topic_alias);
+	PROP_PRINT_INT(topic_alias_max);
+
+	PROP_PRINT_INT(payload_format_indicator);
+	PROP_PRINT_INT(max_qos);
+	PROP_PRINT_INT(retain_available);
+	PROP_PRINT_INT(wildcard_subscription_available);
+	PROP_PRINT_INT(subscription_id_available);
+	PROP_PRINT_INT(shared_subscription_available);
+	PROP_PRINT_INT(request_response_info);
+	PROP_PRINT_INT(request_problem_info);
+
+	for (i = 0; i < p->_user_len; i++) {
+		PROP_PRINT_USER(i);
+	}
+}
+
 #define DEBUG_PROP_FLAGS(prop, new_prop)			\
 	printf("Prev prop flags: 0x%08x, adding: %s\n",		\
 	       prop.flags, m5_prop_name[(new_prop)])
@@ -494,6 +553,8 @@ static void test_m5_connect(void)
 	rc = cmp_prop(&prop, &prop2);
 	if (rc != M5_SUCCESS) {
 		DBG("cmp_prop");
+		print_prop(&prop);
+		print_prop(&prop2);
 		exit(1);
 	}
 
@@ -512,65 +573,6 @@ static void test_m5_connect(void)
 	printf("\tWill retain: %s\n", msg2.will_retain == 1 ? "yes" : "no");
 	printf("\tWill QoS: %u\n", msg2.will_qos);
 	printf("\tClean start: %s\n", msg2.clean_start == 1 ? "yes" : "no");
-}
-
-#define PROP_PRINT_INT(name)					\
-		printf("\t" #name": (0x%x) %u\n",		\
-		       p->_ ## name, p->_ ## name)
-
-#define PROP_PRINT_STR(name)					\
-		printf("\t" #name": (%u) %.*s\n",		\
-		       p->_ ## name ## _len,			\
-		       p->_ ## name ## _len,			\
-		       p->_ ## name ## _len == 0 ? NULL : p->_ ## name)
-
-#define PROP_PRINT_USER(idx)					\
-		printf("\tuser[%d] (%d) %.*s -> (%d) %.*s\n",	\
-		       idx,					\
-		       p->_user_prop[idx].key_len,		\
-		       p->_user_prop[idx].key_len,		\
-		       p->_user_prop[idx].key,			\
-		       p->_user_prop[idx].value_len,		\
-		       p->_user_prop[idx].value_len,		\
-		       p->_user_prop[idx].value)
-
-static void print_prop(struct m5_prop *p)
-{
-	uint32_t i;
-
-	printf("\nMQTT Properties\n");
-	PROP_PRINT_STR(auth_method);
-	PROP_PRINT_STR(auth_data);
-	PROP_PRINT_STR(content_type);
-	PROP_PRINT_STR(correlation_data);
-	PROP_PRINT_STR(response_info);
-	PROP_PRINT_STR(server_reference);
-	PROP_PRINT_STR(reason_str);
-	PROP_PRINT_STR(assigned_client_id);
-	PROP_PRINT_STR(response_topic);
-
-	PROP_PRINT_INT(max_packet_size);
-	PROP_PRINT_INT(publication_expiry_interval);
-	PROP_PRINT_INT(session_expiry_interval);
-	PROP_PRINT_INT(subscription_id);
-	PROP_PRINT_INT(will_delay_interval);
-	PROP_PRINT_INT(receive_max);
-	PROP_PRINT_INT(server_keep_alive);
-	PROP_PRINT_INT(topic_alias);
-	PROP_PRINT_INT(topic_alias_max);
-
-	PROP_PRINT_INT(payload_format_indicator);
-	PROP_PRINT_INT(max_qos);
-	PROP_PRINT_INT(retain_available);
-	PROP_PRINT_INT(wildcard_subscription_available);
-	PROP_PRINT_INT(subscription_id_available);
-	PROP_PRINT_INT(shared_subscription_available);
-	PROP_PRINT_INT(request_response_info);
-	PROP_PRINT_INT(request_problem_info);
-
-	for (i = 0; i < p->_user_len; i++) {
-		PROP_PRINT_USER(i);
-	}
 }
 
 static void test_m5_connack(void)
@@ -622,6 +624,8 @@ static void test_m5_connack(void)
 	rc = cmp_prop(&prop, &prop2);
 	if (rc != M5_SUCCESS) {
 		DBG("cmp_prop");
+		print_prop(&prop);
+		print_prop(&prop2);
 		exit(1);
 	}
 
@@ -629,7 +633,6 @@ static void test_m5_connack(void)
 	printf("CONNACK flags: 0x%02x\n", msg.session_present);
 	printf("CONNACK rc: 0x%02x\n", msg.return_code);
 	print_buf(&buf);
-	print_prop(&prop);
 }
 
 static void test_m5_publish_full(void)
@@ -681,9 +684,9 @@ static void test_m5_publish_full(void)
 
 	rc = cmp_prop(&prop, &prop2);
 	if (rc != M5_SUCCESS) {
+		DBG("cmp_prop");
 		print_prop(&prop);
 		print_prop(&prop2);
-		DBG("cmp_prop");
 		exit(1);
 	}
 
@@ -801,7 +804,6 @@ static void test_m5_subscribe(void)
 
 	printf("Subscribe\n");
 	print_buf(&buf);
-	print_prop(&prop);
 
 	msg2.topics.items = 0;
 	msg2.options = options2;
@@ -816,11 +818,11 @@ static void test_m5_subscribe(void)
 		exit(1);
 	}
 
-	print_prop(&prop2);
-
 	rc = cmp_prop(&prop, &prop2);
 	if (rc != M5_SUCCESS) {
 		DBG("cmp_prop");
+		print_prop(&prop);
+		print_prop(&prop2);
 		exit(1);
 	}
 
@@ -862,7 +864,6 @@ static void test_m5_suback(void)
 
 	printf("SUBACK\n");
 	print_buf(&buf);
-	print_prop(&prop);
 
 	msg2.rc_items = 0;
 	msg2.rc_size = 3;
@@ -875,11 +876,11 @@ static void test_m5_suback(void)
 		exit(1);
 	}
 
-	print_prop(&prop2);
-
 	rc = cmp_prop(&prop, &prop2);
 	if (rc != M5_SUCCESS) {
 		DBG("cmp_prop");
+		print_prop(&prop);
+		print_prop(&prop2);
 		exit(1);
 	}
 }
@@ -965,7 +966,6 @@ static void test_m5_unsuback(void)
 
 	printf("UNSUBACK\n");
 	print_buf(&buf);
-	print_prop(&prop);
 
 	buf.offset = 0;
 	rc = m5_unpack_unsuback(&ctx, &buf, &msg2, &prop2);
@@ -977,6 +977,8 @@ static void test_m5_unsuback(void)
 	rc = cmp_prop(&prop, &prop2);
 	if (rc != M5_SUCCESS) {
 		DBG("cmp_prop");
+		print_prop(&prop);
+		print_prop(&prop2);
 		exit(1);
 	}
 }
@@ -1056,12 +1058,12 @@ static void test_m5_disconnect(void)
 
 	printf("DISCONNECT\n");
 	print_buf(&buf);
-	print_prop(&prop);
-	print_prop(&prop2);
 
 	rc = cmp_prop(&prop, &prop2);
 	if (rc != M5_SUCCESS) {
 		DBG("cmp_prop");
+		print_prop(&prop);
+		print_prop(&prop2);
 		exit(1);
 	}
 }
@@ -1152,12 +1154,12 @@ static void test_m5_auth(void)
 
 	printf("AUTH\n");
 	print_buf(&buf);
-	print_prop(&prop);
-	print_prop(&prop2);
 
 	rc = cmp_prop(&prop, &prop2);
 	if (rc != M5_SUCCESS) {
 		DBG("cmp_prop");
+		print_prop(&prop);
+		print_prop(&prop2);
 		exit(1);
 	}
 }
