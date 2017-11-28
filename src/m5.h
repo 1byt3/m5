@@ -422,9 +422,9 @@ int m5_unpack_unsuback(struct m5_ctx *ctx, struct app_buf *buf,
 
 int m5_pack_pingreq(struct m5_ctx *ctx, struct app_buf *buf);
 
-int m5_pack_pingresp(struct m5_ctx *ctx, struct app_buf *buf);
-
 int m5_unpack_pingreq(struct m5_ctx *ctx, struct app_buf *buf);
+
+int m5_pack_pingresp(struct m5_ctx *ctx, struct app_buf *buf);
 
 int m5_unpack_pingresp(struct m5_ctx *ctx, struct app_buf *buf);
 
