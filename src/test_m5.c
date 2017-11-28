@@ -1033,45 +1033,42 @@ static void test_m5_unsuback(void)
 	}
 }
 
-static void test_m5_pings(void)
+typedef int (*ptr_ping)(struct m5_ctx *, struct app_buf *);
+
+static void test_m5_pings(ptr_ping pack, ptr_ping unpack)
 {
 	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
 			       .size = sizeof(data) };
 	int rc;
 
+	rc = pack(&ctx, &buf);
+	if (rc != M5_SUCCESS) {
+		DBG("pack");
+		exit(1);
+	}
+
+	print_buf(&buf);
+
+	buf.offset = 0;
+	rc = unpack(&ctx, &buf);
+	if (rc != M5_SUCCESS) {
+		DBG("unpack");
+		exit(1);
+	}
+}
+
+static void test_m5_pingreq(void)
+{
 	TEST_HDR(__func__);
 
-	rc = m5_pack_pingreq(&ctx, &buf);
-	if (rc != M5_SUCCESS) {
-		DBG("m5_pack_pingreq");
-		exit(1);
-	}
+	test_m5_pings(m5_pack_pingreq, m5_unpack_pingreq);
+}
 
-	print_buf(&buf);
+static void test_m5_pingresp(void)
+{
+	TEST_HDR(__func__);
 
-	buf.offset = 0;
-	rc = m5_unpack_pingreq(&ctx, &buf);
-	if (rc != M5_SUCCESS) {
-		DBG("m5_unpack_pingreq");
-		exit(1);
-	}
-
-	buf.offset = 0;
-	buf.len = 0;
-	rc = m5_pack_pingresp(&ctx, &buf);
-	if (rc != M5_SUCCESS) {
-		DBG("m5_pack_pingresp");
-		exit(1);
-	}
-
-	print_buf(&buf);
-
-	buf.offset = 0;
-	rc = m5_unpack_pingresp(&ctx, &buf);
-	if (rc != M5_SUCCESS) {
-		DBG("m5_unpack_pingresp");
-		exit(1);
-	}
+	test_m5_pings(m5_pack_pingresp, m5_unpack_pingresp);
 }
 
 static void test_m5_disconnect(void)
@@ -1226,7 +1223,8 @@ int main(void)
 	test_m5_suback();
 	test_m5_unsubscribe();
 	test_m5_unsuback();
-	test_m5_pings();
+	test_m5_pingreq();
+	test_m5_pingresp();
 	test_m5_disconnect_short();
 	test_m5_disconnect();
 	test_m5_auth_short();
