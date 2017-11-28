@@ -792,10 +792,85 @@ static void test_m5_publish(void)
 	test_m5_publish_full();
 }
 
-/* XXX
- * Add the PUB response test case
- */
+typedef int (*ptr_pub)(struct m5_ctx *ctx,
+		       struct app_buf *buf,
+		       struct m5_pub_response *msg,
+		       struct m5_prop *prop);
 
+static void test_m5_pub_msgs(ptr_pub pack, ptr_pub unpack, const char *str)
+{
+	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
+			       .size = sizeof(data) };
+	struct m5_pub_response msg2 = { 0 };
+	struct m5_pub_response msg = { 0 };
+	struct m5_prop prop2 = { 0 };
+	struct m5_prop prop = { 0 };
+	int rc;
+
+	m5_prop_reason_str(&prop, (uint8_t *)"reason", 6);
+	add_user_properties(&prop);
+
+	msg.packet_id = 0xABCD;
+	msg.reason_code = 0x00;
+
+	rc = pack(&ctx, &buf, &msg, &prop);
+	if (rc != M5_SUCCESS) {
+		DBG("pack");
+		exit(1);
+	}
+
+	buf.offset = 0;
+	rc = unpack(&ctx, &buf, &msg2, &prop2);
+	if (rc != M5_SUCCESS) {
+		DBG("unpack");
+		exit(1);
+	}
+
+	if (msg.packet_id != msg2.packet_id ||
+	    msg.reason_code != msg2.reason_code) {
+		DBG("variable header");
+		exit(1);
+	}
+
+	rc = cmp_prop(&prop, &prop2);
+	if (rc != M5_SUCCESS) {
+		DBG("cmp_prop");
+		print_prop(&prop);
+		print_prop(&prop2);
+		exit(1);
+	}
+
+	printf("%s\n", str);
+	print_buf(&buf);
+}
+
+static void test_m5_puback(void)
+{
+	TEST_HDR(__func__);
+
+	test_m5_pub_msgs(m5_pack_puback, m5_unpack_puback, "PUBACK");
+}
+
+static void test_m5_pubrel(void)
+{
+	TEST_HDR(__func__);
+
+	test_m5_pub_msgs(m5_pack_pubrel, m5_unpack_pubrel, "PUBREL");
+}
+
+static void test_m5_pubrec(void)
+{
+	TEST_HDR(__func__);
+
+	test_m5_pub_msgs(m5_pack_pubrec, m5_unpack_pubrec, "PUBREC");
+}
+
+static void test_m5_pubcomp(void)
+{
+	TEST_HDR(__func__);
+
+	test_m5_pub_msgs(m5_pack_pubcomp, m5_unpack_pubcomp, "PUBCOMP");
+}
 
 static int compare_topics(struct m5_topics *t1, struct m5_topics *t2)
 {
@@ -1224,6 +1299,10 @@ int main(void)
 	test_m5_connect();
 	test_m5_connack();
 	test_m5_publish();
+	test_m5_puback();
+	test_m5_pubrel();
+	test_m5_pubrec();
+	test_m5_pubcomp();
 	test_m5_subscribe();
 	test_m5_suback();
 	test_m5_unsubscribe();
