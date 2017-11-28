@@ -561,8 +561,16 @@ int m5_prop_add_user_prop(struct m5_prop *prop,
 {
 	struct m5_user_prop *user;
 
-	if (prop == NULL || prop->_user_len + 1 > M5_USER_PROP_SIZE) {
+	if (prop == NULL) {
 		return M5_INVALID_ARGUMENT;
+	}
+
+	if (prop->_user_len + 1 > M5_USER_PROP_SIZE) {
+		if (M5_SKIP_ON_FULL_USER_PROP == 0) {
+			return M5_USER_PROPERTY_ARRAY_IS_FULL;
+		}
+
+		return M5_SUCCESS;
 	}
 
 	prop->flags |=  M5_2POW(REMAP_USER_PROPERTY);

@@ -44,6 +44,10 @@
 #include <inttypes.h>
 #include <stddef.h>
 
+#ifndef M5_SKIP_ON_FULL_USER_PROP
+#define M5_SKIP_ON_FULL_USER_PROP	0
+#endif
+
 enum m5_status {
 	M5_SUCCESS = 0,
 	M5_INVALID_ARGUMENT,
@@ -57,6 +61,7 @@ enum m5_status {
 	M5_INVALID_PROPERTY_VBI,
 	M5_FINISHED_READING_INVALID_LENGTH,
 	M5_FINISHED_WRITING_INVALID_LENGTH,
+	M5_USER_PROPERTY_ARRAY_IS_FULL,
 };
 
 struct m5_ctx {
