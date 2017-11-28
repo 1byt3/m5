@@ -635,6 +635,43 @@ static void test_m5_connack(void)
 	print_buf(&buf);
 }
 
+static int cmp_publish(struct m5_publish *a, struct m5_publish *b)
+{
+	if (a->payload_len != b->payload_len) {
+		return M5_INVALID_ARGUMENT;
+	}
+
+	if (a->topic_name_len != b->topic_name_len) {
+		return M5_INVALID_ARGUMENT;
+	}
+
+	if (a->packet_id != b->packet_id) {
+		return M5_INVALID_ARGUMENT;
+	}
+
+	if (a->dup != b->dup) {
+		return M5_INVALID_ARGUMENT;
+	}
+
+	if (a->qos != b->qos) {
+		return M5_INVALID_ARGUMENT;
+	}
+
+	if (a->retain != b->retain) {
+		return M5_INVALID_ARGUMENT;
+	}
+
+	if (memcmp(a->payload, b->payload, a->payload_len) != 0) {
+		return M5_INVALID_ARGUMENT;
+	}
+
+	if (memcmp(a->topic_name, b->topic_name, a->topic_name_len) != 0) {
+		return M5_INVALID_ARGUMENT;
+	}
+
+	return M5_SUCCESS;
+}
+
 static void test_m5_publish_full(void)
 {
 	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
@@ -682,6 +719,12 @@ static void test_m5_publish_full(void)
 
 	print_buf(&buf);
 
+	rc = cmp_publish(&msg, &msg2);
+	if (rc != M5_SUCCESS) {
+		DBG("cmp_publish");
+		exit(1);
+	}
+
 	rc = cmp_prop(&prop, &prop2);
 	if (rc != M5_SUCCESS) {
 		DBG("cmp_prop");
@@ -723,6 +766,12 @@ static void test_m5_publish_short(void)
 	rc = m5_unpack_publish(&ctx, &buf, &msg2, &prop2);
 	if (rc != M5_SUCCESS) {
 		DBG("m5_unpack_publish");
+		exit(1);
+	}
+
+	rc = cmp_publish(&msg, &msg2);
+	if (rc != M5_SUCCESS) {
+		DBG("cmp_publish");
 		exit(1);
 	}
 
