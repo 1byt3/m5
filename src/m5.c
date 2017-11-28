@@ -903,9 +903,6 @@ static int buf2prop_subscription_id(struct app_buf *buf, struct m5_prop *prop)
 	uint32_t prop_len;
 	int rc;
 
-	/* On successful execution of this routine, the variable length
-	 * and property length are set.
-	 */
 	rc = m5_decode_int(buf, &prop_val, &prop_len);
 	if (rc != M5_SUCCESS) {
 		return rc;
