@@ -399,6 +399,21 @@ static int cmp_prop(struct m5_prop *p1, struct m5_prop *p2)
 	return M5_SUCCESS;
 }
 
+static void add_user_properties(struct m5_prop *prop)
+{
+	int rc;
+	int i;
+
+	for (i = 0; i < M5_USER_PROP_SIZE; i++) {
+		rc = m5_prop_add_user_prop(prop, (uint8_t *)"hello", 5,
+					   (uint8_t *)"world!", 6);
+		if (rc != M5_SUCCESS) {
+			DBG("m5_prop_add_user_prop");
+			exit(1);
+		}
+	}
+}
+
 #define DEBUG_PROP_FLAGS(prop, new_prop)			\
 	printf("Prev prop flags: 0x%08x, adding: %s\n",		\
 	       prop.flags, m5_prop_name[(new_prop)])
@@ -415,7 +430,6 @@ static void test_m5_connect(void)
 	struct m5_prop prop2 = { 0 };
 	struct m5_prop prop = { 0 };
 	int rc;
-	int i;
 
 	TEST_HDR(__func__);
 
@@ -436,14 +450,9 @@ static void test_m5_connect(void)
 	DEBUG_PROP_FLAGS(prop, REMAP_REQUEST_PROBLEM_INFORMATION);
 	m5_prop_request_problem_info(&prop, 1);
 	DEBUG_PROP_FLAGS(prop, REMAP_USER_PROPERTY);
-	for (i = 0; i < M5_USER_PROP_SIZE; i++) {
-		rc = m5_prop_add_user_prop(&prop, (uint8_t *)"hello", 5,
-						  (uint8_t *)"world!", 6);
-		if (rc != M5_SUCCESS) {
-			DBG("m5_prop_add_user_prop");
-			exit(1);
-		}
-	}
+
+	add_user_properties(&prop);
+
 	DEBUG_PROP_FLAGS(prop, REMAP_AUTH_METHOD);
 	m5_prop_auth_method(&prop, (uint8_t *)"none", 4);
 	DEBUG_PROP_FLAGS(prop, REMAP_AUTH_DATA);
@@ -565,7 +574,6 @@ static void test_m5_connack(void)
 	struct m5_prop prop2 = { 0 };
 	struct m5_prop prop = { 0 };
 	int rc;
-	int i;
 
 	TEST_HDR(__func__);
 
@@ -579,13 +587,9 @@ static void test_m5_connack(void)
 	m5_prop_assigned_client_id(&prop, (uint8_t *)"assigned", 8);
 	m5_prop_topic_alias_max(&prop, 0xABCD);
 	m5_prop_reason_str(&prop, (uint8_t *)"reason", 6);
-	for (i = 0; i < M5_USER_PROP_SIZE; i++) {
-		rc = m5_prop_add_user_prop(&prop, (uint8_t *)"hello", 5,
-						  (uint8_t *)"world!", 6);
-		if (rc != M5_SUCCESS) {
-			DBG("m5_prop_add_user_prop");
-			exit(1);		}
-	}
+
+	add_user_properties(&prop);
+
 	m5_prop_wildcard_subscription_available(&prop, 1);
 	m5_prop_subscription_id_available(&prop, 1);
 	m5_prop_shared_subscription_available(&prop, 1);
@@ -630,7 +634,6 @@ static void test_m5_publish(void)
 	struct m5_prop prop2 = { 0 };
 	struct m5_prop prop = { 0 };
 	int rc;
-	int i;
 
 	TEST_HDR(__func__);
 
@@ -648,14 +651,9 @@ static void test_m5_publish(void)
 	m5_prop_topic_alias(&prop, 0x12);
 	m5_prop_response_topic(&prop, (uint8_t *)"topic", 5);
 	m5_prop_correlation_data(&prop, (uint8_t *)"data", 4);
-	for (i = 0; i < M5_USER_PROP_SIZE; i++) {
-		rc = m5_prop_add_user_prop(&prop, (uint8_t *)"hello", 5,
-						  (uint8_t *)"world!", 6);
-		if (rc != M5_SUCCESS) {
-			DBG("m5_prop_add_user_prop");
-			exit(1);
-		}
-	}
+
+	add_user_properties(&prop);
+
 	m5_prop_subscription_id(&prop, 0x12);
 	m5_prop_content_type(&prop, (uint8_t *)"data", 4);
 
@@ -793,7 +791,6 @@ static void test_m5_suback(void)
 	struct m5_prop prop = { 0 };
 	uint8_t reason_code2[3];
 	int rc;
-	int i;
 
 	TEST_HDR(__func__);
 
@@ -803,14 +800,8 @@ static void test_m5_suback(void)
 	msg.rc = reason_code;
 
 	m5_prop_reason_str(&prop, (uint8_t *)"reason", 6);
-	for (i = 0; i < M5_USER_PROP_SIZE; i++) {
-		rc = m5_prop_add_user_prop(&prop, (uint8_t *)"hello", 5,
-						  (uint8_t *)"world!", 6);
-		if (rc != M5_SUCCESS) {
-			DBG("m5_prop_add_user_prop");
-			exit(1);
-		}
-	}
+
+	add_user_properties(&prop);
 
 	rc = m5_pack_suback(&ctx, &buf, &msg, &prop);
 	if (rc != M5_SUCCESS) {
@@ -903,7 +894,6 @@ static void test_m5_unsuback(void)
 	struct m5_suback msg2 = { .rc_size = 3, .rc = reason_code_read };
 	uint16_t pkt_id = 0x1234;
 	int rc;
-	int i;
 
 	TEST_HDR(__func__);
 
@@ -913,14 +903,8 @@ static void test_m5_unsuback(void)
 	msg.rc_size = 3;
 
 	m5_prop_reason_str(&prop, (uint8_t *)"reason", 6);
-	for (i = 0; i < M5_USER_PROP_SIZE; i++) {
-		rc = m5_prop_add_user_prop(&prop, (uint8_t *)"hello", 5,
-						  (uint8_t *)"world!", 6);
-		if (rc != M5_SUCCESS) {
-			DBG("m5_prop_add_user_prop");
-			exit(1);
-		}
-	}
+
+	add_user_properties(&prop);
 
 	rc = m5_pack_unsuback(&ctx, &buf, &msg, &prop);
 	if (rc != M5_SUCCESS) {
@@ -995,20 +979,14 @@ static void test_m5_disconnect(void)
 	struct m5_prop prop = { 0 };
 	uint8_t reason_code;
 	int rc;
-	int i;
 
 	TEST_HDR(__func__);
 
 	m5_prop_session_expiry_interval(&prop, 0x1234);
 	m5_prop_reason_str(&prop, (uint8_t *)"reason", 6);
-	for (i = 0; i < M5_USER_PROP_SIZE; i++) {
-		rc = m5_prop_add_user_prop(&prop, (uint8_t *)"hello", 5,
-						  (uint8_t *)"world!", 6);
-		if (rc != M5_SUCCESS) {
-			DBG("m5_prop_add_user_prop");
-			exit(1);
-		}
-	}
+
+	add_user_properties(&prop);
+
 	m5_prop_server_reference(&prop, (uint8_t *)"reference", 9);
 
 	m5_prop_session_expiry_interval(&prop, 0x1234);
@@ -1100,20 +1078,14 @@ static void test_m5_auth(void)
 	struct m5_prop prop = { 0 };
 	uint8_t ret_code;
 	int rc;
-	int i;
 
 	TEST_HDR(__func__);
 
 	m5_prop_auth_method(&prop, (uint8_t *)"method", 6);
 	m5_prop_auth_data(&prop, (uint8_t *)"method_payload", 14);
-	for (i = 0; i < M5_USER_PROP_SIZE; i++) {
-		rc = m5_prop_add_user_prop(&prop, (uint8_t *)"hello", 5,
-						  (uint8_t *)"world!", 6);
-		if (rc != M5_SUCCESS) {
-			DBG("m5_prop_add_user_prop");
-			exit(1);
-		}
-	}
+
+	add_user_properties(&prop);
+
 	rc = m5_pack_auth(&ctx, &buf, M5_RC_CONTINUE_AUTHENTICATION, &prop);
 	if (rc != M5_SUCCESS) {
 		DBG("m5_pack_auth");
