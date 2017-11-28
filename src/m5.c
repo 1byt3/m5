@@ -2357,6 +2357,10 @@ static int pack_publish_payload(struct app_buf *buf,
 
 	ARG_UNUSED(pack_info);
 
+	if (msg->payload_len == 0) {
+		return M5_SUCCESS;
+	}
+
 	return m5_pack_raw_binary(buf, msg->payload, msg->payload_len);
 }
 
