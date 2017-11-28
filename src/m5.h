@@ -165,9 +165,12 @@ struct m5_user_prop {
 	uint16_t value_len;
 };
 
-struct m5_prop {
 #ifndef M5_USER_PROP_SIZE
-	#define M5_USER_PROP_SIZE 0
+#define M5_USER_PROP_SIZE 0
+#endif
+
+struct m5_prop {
+#if M5_USER_PROP_SIZE == 0
 	struct m5_user_prop *_user_prop;
 #else
 	struct m5_user_prop _user_prop[M5_USER_PROP_SIZE];

@@ -38,15 +38,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "test_common.h"
 #include "m5.c"
 
 #include <string.h>
 #include <stdio.h>
-
-#define TEST_HDR(msg)	printf("------------------------\n%s\n", (msg))
-#define RC_TO_STR(rc)	((rc) == M5_SUCCESS ? "OK" : "ERROR")
-#define DBG(msg)	printf("\t%s:%d %s\n", __func__, __LINE__, msg)
-
 
 static const char * const m5_prop_name[] = {
 	NULL,
@@ -419,6 +415,15 @@ static void add_user_properties(struct m5_prop *prop)
 			DBG("m5_prop_add_user_prop");
 			exit(1);
 		}
+	}
+
+	/* This must fail */
+	rc = m5_prop_add_user_prop(prop,
+				   (uint8_t *)"hello", 5,
+				   (uint8_t *)"world!", 6);
+	if (rc == M5_SUCCESS) {
+		DBG("m5_prop_add_user_prop");
+		exit(1);
 	}
 }
 
