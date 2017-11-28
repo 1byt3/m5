@@ -1037,6 +1037,61 @@ static void test_m5_disconnect(void)
 	}
 }
 
+typedef int (*ptr_pack)(struct m5_ctx *, struct app_buf *,
+		      uint8_t, struct m5_prop *);
+
+typedef int (*ptr_unpack)(struct m5_ctx *, struct app_buf *,
+			  uint8_t *, struct m5_prop *);
+
+static void test_m5_disconnect_auth_short(ptr_pack pack,
+					  ptr_unpack unpack,
+					  const char *str)
+{
+	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
+			       .size = sizeof(data) };
+	uint8_t reason_code = 0x00;
+	int rc;
+
+	TEST_HDR(__func__);
+
+	rc = pack(&ctx, &buf, reason_code, NULL);
+	if (rc != M5_SUCCESS) {
+		DBG("m5_pack");
+		exit(1);
+	}
+
+	buf.offset = 0;
+	rc = unpack(&ctx, &buf, &reason_code, NULL);
+	if (rc != M5_SUCCESS) {
+		DBG("m5_unpack");
+		exit(1);
+	}
+
+	if (reason_code != 0) {
+		DBG("pack/unpack");
+		exit(1);
+	}
+
+	printf("%s (no reason code / properties)\n", str);
+	print_buf(&buf);
+}
+
+static void test_m5_disconnect_short(void)
+{
+	test_m5_disconnect_auth_short(m5_pack_disconnect,
+				      m5_unpack_disconnect,
+				      "DISCONNECT");
+
+}
+
+static void test_m5_auth_short(void)
+{
+	test_m5_disconnect_auth_short(m5_pack_auth,
+				      m5_unpack_auth,
+				      "AUTH");
+
+}
+
 static void test_m5_auth(void)
 {
 	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
@@ -1097,7 +1152,9 @@ int main(void)
 	test_m5_unsubscribe();
 	test_m5_unsuback();
 	test_m5_pings();
+	test_m5_disconnect_short();
 	test_m5_disconnect();
+	test_m5_auth_short();
 	test_m5_auth();
 
 	return 0;
