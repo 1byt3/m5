@@ -1130,18 +1130,16 @@ static void test_m5_disconnect_auth_short(ptr_pack pack,
 	uint8_t reason_code = 0x00;
 	int rc;
 
-	TEST_HDR(__func__);
-
 	rc = pack(&ctx, &buf, reason_code, NULL);
 	if (rc != M5_SUCCESS) {
-		DBG("m5_pack");
+		DBG("pack");
 		exit(1);
 	}
 
 	buf.offset = 0;
 	rc = unpack(&ctx, &buf, &reason_code, NULL);
 	if (rc != M5_SUCCESS) {
-		DBG("m5_unpack");
+		DBG("unpack");
 		exit(1);
 	}
 
@@ -1156,6 +1154,8 @@ static void test_m5_disconnect_auth_short(ptr_pack pack,
 
 static void test_m5_disconnect_short(void)
 {
+	TEST_HDR(__func__);
+
 	test_m5_disconnect_auth_short(m5_pack_disconnect,
 				      m5_unpack_disconnect,
 				      "DISCONNECT");
@@ -1164,6 +1164,8 @@ static void test_m5_disconnect_short(void)
 
 static void test_m5_auth_short(void)
 {
+	TEST_HDR(__func__);
+
 	test_m5_disconnect_auth_short(m5_pack_auth,
 				      m5_unpack_auth,
 				      "AUTH");
