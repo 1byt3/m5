@@ -43,6 +43,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if defined(__FreeBSD__)
+#include <sys/endian.h>
+#else
+#include <endian.h>
+#endif
+
 #define APPBUF_FREE_READ_SPACE(buf) (buf->len - buf->offset)
 #define APPBUF_FREE_WRITE_SPACE(buf) (buf->size - buf->len)
 #define APPBUF_DATAPTR_CURRENT(buf) (buf->data + buf->offset)
