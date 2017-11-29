@@ -38,6 +38,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+M5_SRC = src
+TEST_SRC = tests
+
+INCLUDES = -I$(M5_SRC) -I$(TEST_SRC)
+
 CFLAGS =				\
 	-Wall -Wextra -Werror		\
 	-Wno-missing-field-initializers	\
@@ -56,19 +61,22 @@ all: dirs $(TESTS)
 dirs:
 	@mkdir -p bin
 
-bin/test_%:		\
-	src/test_%.c	\
-	src/m5.c	\
-	src/m5.h
-	$(CC) $(CFLAGS) -Isrc -o $@ $<
+bin/test_%:			\
+	$(TEST_SRC)/test_%.c	\
+	$(M5_SRC)/m5.c		\
+	$(M5_SRC)/m5.h
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $<
 
-tests: $(TESTS)
+tests: $(TESTS) dirs
+	@$(foreach test, $(TESTS), ./$(test) || exit 1;)
+
+memtest: $(TESTS)
 	@$(foreach test, $(TESTS), $(VALGRIND) ./$(test) || exit 1;)
 
 checkpatch:
-	perl ./checkpatch.pl --no-tree -f src/* --ignore BRACES,CONST_STRUCT
+	perl ./checkpatch.pl --no-tree -f $(M5_SRC)/* $(TEST_SRC)/* --ignore BRACES,CONST_STRUCT
 
 clean:
-	rm -rf bin
+	rm -f bin/*
 
 .PHONY: all checkpatch dirs tests clean
