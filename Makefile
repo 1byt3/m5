@@ -40,8 +40,10 @@
 
 M5_SRC = src
 TEST_SRC = tests
+SAMPLE_SRC = samples
 
-INCLUDES = -I$(M5_SRC) -I$(TEST_SRC)
+M5_INC = -I$(M5_SRC)
+TEST_INC = $(M5_INC) -I$(TEST_SRC)
 
 CFLAGS =				\
 	-Wall -Wextra -Werror		\
@@ -54,18 +56,32 @@ TESTS =				\
 	bin/test_m5		\
 	bin/test_corner_cases
 
+SAMPLES =			\
+	bin/m5_publisher
+
 VALGRIND = valgrind -q --leak-check=full --error-exitcode=1
 
-all: dirs $(TESTS)
+all: dirs $(TESTS) $(SAMPLES)
 
 dirs:
 	@mkdir -p bin
+	@mkdir -p obj
 
 bin/test_%:			\
 	$(TEST_SRC)/test_%.c	\
 	$(M5_SRC)/m5.c		\
 	$(M5_SRC)/m5.h
-	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $<
+	$(CC) $(CFLAGS) $(TEST_INC) -o $@ $<
+
+obj/m5.o:			\
+	$(M5_SRC)/m5.c		\
+	$(M5_SRC)/m5.h
+	$(CC) $(CFLAGS) $(M5_INC) -c -o $@ $<
+
+bin/%:				\
+	$(SAMPLE_SRC)/%.c	\
+	obj/m5.o
+	$(CC) $(CFLAGS) $(M5_INC) -o $@ $< obj/m5.o
 
 tests: $(TESTS) dirs
 	@$(foreach test, $(TESTS), ./$(test) || exit 1;)
