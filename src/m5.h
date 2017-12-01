@@ -300,6 +300,14 @@ struct m5_unsubscribe {
 	uint16_t packet_id;
 };
 
+size_t buf_bytes_to_read(struct app_buf *buf);
+
+size_t buf_bytes_to_write(struct app_buf *buf);
+
+uint8_t *buf_current(struct app_buf *buf);
+
+void buf_reset(struct app_buf *buf);
+
 void m5_prop_payload_format_indicator(struct m5_prop *prop, uint8_t v);
 
 void m5_prop_publication_expiry_interval(struct m5_prop *prop, uint32_t v);

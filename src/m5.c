@@ -225,6 +225,27 @@ struct m5_prop_conf {
 	uint32_t valid_msgs;
 };
 
+size_t buf_bytes_to_read(struct app_buf *buf)
+{
+	return APPBUF_FREE_READ_SPACE(buf);
+}
+
+size_t buf_bytes_to_write(struct app_buf *buf)
+{
+	return APPBUF_FREE_WRITE_SPACE(buf);
+}
+
+uint8_t *buf_current(struct app_buf *buf)
+{
+	return APPBUF_DATAPTR_CURRENT(buf);
+}
+
+void buf_reset(struct app_buf *buf)
+{
+	buf->offset = 0;
+	buf->len = 0;
+}
+
 static void m5_ctx_status(struct m5_ctx *ctx, enum m5_status status)
 {
 	if (ctx == NULL) {
