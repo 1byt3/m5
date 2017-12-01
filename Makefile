@@ -74,9 +74,9 @@ memtest: $(TESTS)
 	@$(foreach test, $(TESTS), $(VALGRIND) ./$(test) || exit 1;)
 
 checkpatch:
-	perl ./checkpatch.pl --no-tree -f $(M5_SRC)/* $(TEST_SRC)/* --ignore BRACES,CONST_STRUCT
+	@git --no-pager diff HEAD~ HEAD | perl ./checkpatch.pl -q --no-tree --ignore BRACES,FILE_PATH_CHANGES,CONST_STRUCT -
 
 clean:
 	rm -f bin/*
 
-.PHONY: all checkpatch dirs tests clean
+.PHONY: all dirs tests memtest checkpatch clean
