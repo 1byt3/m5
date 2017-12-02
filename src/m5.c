@@ -1420,6 +1420,41 @@ static int m5_pack_prop(struct app_buf *buf, struct m5_prop *prop,
 	return M5_SUCCESS;
 }
 
+int m5_unpack_ignore(struct m5_ctx *ctx, struct app_buf *buf)
+{
+	uint32_t rlen_wsize;
+	uint32_t rlen;
+	int rc;
+
+	if (buf == NULL || APPBUF_FREE_READ_SPACE(buf) < 2) {
+		rc = M5_NOT_ENOUGH_SPACE_IN_BUFFER;
+		goto lb_exit;
+	}
+
+	/* skip fixed header */
+	buf->offset += 1;
+
+	rc = m5_decode_int(buf, &rlen, &rlen_wsize);
+	if (rc != M5_SUCCESS) {
+		rc = M5_INVALID_REMLEN_VBI;
+		goto lb_exit;
+	}
+
+	if (APPBUF_FREE_READ_SPACE(buf) < rlen) {
+		rc = M5_NOT_ENOUGH_SPACE_IN_BUFFER;
+		goto lb_exit;
+	}
+
+	/* skip var header and payload (if any) */
+	buf->offset += rlen;
+
+	rc = M5_SUCCESS;
+lb_exit:
+	m5_ctx_status(ctx, rc);
+
+	return rc;
+}
+
 static int m5_connect_payload_wsize(struct m5_connect *msg,
 				    uint32_t *wire_size)
 {
