@@ -2699,14 +2699,14 @@ static int unpack(struct m5_ctx *ctx,
 	pack_info->remlen = rlen;
 
 	if (APPBUF_FREE_READ_SPACE(buf) < rlen) {
-		return M5_NOT_ENOUGH_SPACE_IN_BUFFER;
+		rc = M5_NOT_ENOUGH_SPACE_IN_BUFFER;
 		goto lb_exit;
 	}
 
 	if (pack_info->var_hdr != NULL) {
 		rc = pack_info->var_hdr(buf, pack_info, msg, prop);
 		if (rc != M5_SUCCESS) {
-			return M5_INVALID_VARIABLE_HEADER;
+			rc = M5_INVALID_VARIABLE_HEADER;
 			goto lb_exit;
 		}
 	}
