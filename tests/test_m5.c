@@ -877,7 +877,7 @@ static void test_m5_pubcomp(void)
 	test_m5_pub_msgs(m5_pack_pubcomp, m5_unpack_pubcomp, "PUBCOMP");
 }
 
-static int compare_topics(struct m5_topics *t1, struct m5_topics *t2)
+static int compare_topics(struct m5_topic_opts *t1, struct m5_topic_opts *t2)
 {
 	uint8_t i;
 	int rc;
@@ -923,7 +923,7 @@ static void test_m5_subscribe(void)
 	msg.packet_id = 0xABCD;
 	msg.topics.items = 3;
 	msg.topics.size = 3;
-	msg.options = options;
+	msg.topics.options = options;
 	msg.topics.topics = topics;
 	msg.topics.len = topics_len;
 
@@ -938,7 +938,7 @@ static void test_m5_subscribe(void)
 	print_buf(&buf);
 
 	msg2.topics.items = 0;
-	msg2.options = options2;
+	msg2.topics.options = options2;
 	msg2.topics.topics = topics2;
 	msg2.topics.len = topics_len2;
 	msg2.topics.size = 3;

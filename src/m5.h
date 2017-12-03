@@ -270,17 +270,18 @@ struct m5_pub_response {
 	uint8_t reason_code;
 };
 
-struct m5_topics {
+struct m5_topic_opts {
 	uint8_t **topics;
 	uint16_t *len;
+
+	uint8_t *options;
 
 	uint16_t items;
 	uint16_t size;
 };
 
 struct m5_subscribe {
-	struct m5_topics topics;
-	uint8_t *options;
+	struct m5_topic_opts topics;
 
 	uint16_t packet_id;
 };
@@ -295,7 +296,7 @@ struct m5_suback {
 };
 
 struct m5_unsubscribe {
-	struct m5_topics topics;
+	struct m5_topic_opts topics;
 
 	uint16_t packet_id;
 };

@@ -1877,7 +1877,7 @@ int m5_unpack_pubcomp(struct m5_ctx *ctx, struct app_buf *buf,
 	return m5_unpack_pub_msgs(ctx, buf, msg, prop, M5_PKT_PUBCOMP);
 }
 
-static int m5_topics_wsize(struct m5_topics *topics, uint32_t *wire_size)
+static int m5_topics_wsize(struct m5_topic_opts *topics, uint32_t *wire_size)
 {
 	uint8_t i;
 
@@ -1899,7 +1899,7 @@ static int m5_pack_subscribe_payload(struct app_buf *buf,
 	uint8_t i;
 
 	for (i = 0; i < msg->topics.items; i++) {
-		uint8_t options = msg->options[i];
+		uint8_t options = msg->topics.options[i];
 
 		if ((options & 0x03) == 0x03 || (options & 0xC0) != 0) {
 			return M5_INVALID_ARGUMENT;
@@ -1931,7 +1931,7 @@ static int m5_unpack_subscribe_payload(struct app_buf *buf,
 			return rc;
 		}
 
-		rc = m5_unpack_u8(buf, &msg->options[i]);
+		rc = m5_unpack_u8(buf, &msg->topics.options[i]);
 		if (rc != M5_SUCCESS) {
 			return rc;
 		}
@@ -2045,7 +2045,7 @@ int m5_unpack_suback(struct m5_ctx *ctx, struct app_buf *buf,
 	return m5_unpack_suback_unsuback(ctx, buf, msg, prop, M5_PKT_SUBACK);
 }
 
-static int m5_pack_topics(struct app_buf *buf, struct m5_topics *topics)
+static int m5_pack_topics(struct app_buf *buf, struct m5_topic_opts *topics)
 {
 	uint8_t i;
 
@@ -2056,7 +2056,7 @@ static int m5_pack_topics(struct app_buf *buf, struct m5_topics *topics)
 	return M5_SUCCESS;
 }
 
-static int m5_unpack_topics(struct app_buf *buf, struct m5_topics *topics,
+static int m5_unpack_topics(struct app_buf *buf, struct m5_topic_opts *topics,
 			    uint32_t payload_wsize)
 {
 	uint32_t read_bytes = buf->offset;
