@@ -2939,6 +2939,7 @@ static int unpack_publish_var_hdr(struct app_buf *buf,
 		return rc;
 	}
 
+	msg->packet_id = 0;
 	if (msg->qos != M5_QoS0) {
 		rc = m5_unpack_u16(buf, &msg->packet_id);
 		if (rc != M5_SUCCESS) {
