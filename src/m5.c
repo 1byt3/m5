@@ -1878,13 +1878,14 @@ int m5_unpack_pubcomp(struct m5_ctx *ctx, struct app_buf *buf,
 	return m5_unpack_pub_msgs(ctx, buf, msg, prop, M5_PKT_PUBCOMP);
 }
 
-static int m5_topics_wsize(struct m5_topic_opts *topics, uint32_t *wire_size)
+static int m5_topics_wsize(struct m5_subscribe *msg,
+			   uint32_t *wire_size)
 {
 	uint8_t i;
 
 	*wire_size = 0;
-	for (i = 0; i < topics->items; i++) {
-		*wire_size += M5_STR_LEN_SIZE + topics->len[i];
+	for (i = 0; i < msg->items; i++) {
+		*wire_size += M5_STR_LEN_SIZE + msg->topics[i].len;
 	}
 
 	if (*wire_size == 0) {
@@ -1899,14 +1900,14 @@ static int m5_pack_subscribe_payload(struct app_buf *buf,
 {
 	uint8_t i;
 
-	for (i = 0; i < msg->topics.items; i++) {
-		uint8_t options = msg->topics.options[i];
+	for (i = 0; i < msg->items; i++) {
+		uint8_t options = msg->topics[i].options;
 
 		if ((options & 0x03) == 0x03 || (options & 0xC0) != 0) {
 			return M5_INVALID_ARGUMENT;
 		}
 
-		m5_add_binary(buf, msg->topics.topics[i], msg->topics.len[i]);
+		m5_add_binary(buf, msg->topics[i].name, msg->topics[i].len);
 		m5_add_u8(buf, options);
 	}
 
@@ -1922,17 +1923,17 @@ static int m5_unpack_subscribe_payload(struct app_buf *buf,
 	int rc;
 
 	do {
-		if (i >= msg->topics.size) {
+		if (i >= msg->size) {
 			return M5_NOT_ENOUGH_SPACE_IN_BUFFER;
 		}
 
-		rc = m5_unpack_binary(buf, &msg->topics.topics[i],
-				      &msg->topics.len[i]);
+		rc = m5_unpack_binary(buf, &msg->topics[i].name,
+				      &msg->topics[i].len);
 		if (rc != M5_SUCCESS) {
 			return rc;
 		}
 
-		rc = m5_unpack_u8(buf, &msg->topics.options[i]);
+		rc = m5_unpack_u8(buf, &msg->topics[i].options);
 		if (rc != M5_SUCCESS) {
 			return rc;
 		}
@@ -1940,7 +1941,7 @@ static int m5_unpack_subscribe_payload(struct app_buf *buf,
 		i++;
 	} while (buf->offset - initial < payload_wsize);
 
-	msg->topics.items = i;
+	msg->items = i;
 
 	if (buf->offset - initial != payload_wsize) {
 		return M5_INVALID_ARGUMENT;
@@ -2046,18 +2047,18 @@ int m5_unpack_suback(struct m5_ctx *ctx, struct app_buf *buf,
 	return m5_unpack_suback_unsuback(ctx, buf, msg, prop, M5_PKT_SUBACK);
 }
 
-static int m5_pack_topics(struct app_buf *buf, struct m5_topic_opts *topics)
+static int m5_pack_topics(struct app_buf *buf, struct m5_subscribe *msg)
 {
 	uint8_t i;
 
-	for (i = 0; i < topics->items; i++) {
-		m5_add_binary(buf, topics->topics[i], topics->len[i]);
+	for (i = 0; i < msg->items; i++) {
+		m5_add_binary(buf, msg->topics[i].name, msg->topics[i].len);
 	}
 
 	return M5_SUCCESS;
 }
 
-static int m5_unpack_topics(struct app_buf *buf, struct m5_topic_opts *topics,
+static int m5_unpack_topics(struct app_buf *buf, struct m5_subscribe *msg,
 			    uint32_t payload_wsize)
 {
 	uint32_t read_bytes = buf->offset;
@@ -2065,11 +2066,12 @@ static int m5_unpack_topics(struct app_buf *buf, struct m5_topic_opts *topics,
 	int rc;
 
 	do {
-		if (i >= topics->size) {
+		if (i >= msg->size) {
 			return M5_NOT_ENOUGH_SPACE_IN_BUFFER;
 		}
 
-		rc = m5_unpack_binary(buf, &topics->topics[i], &topics->len[i]);
+		rc = m5_unpack_binary(buf, &msg->topics[i].name,
+				      &msg->topics[i].len);
 		if (rc != M5_SUCCESS) {
 			return rc;
 		}
@@ -2077,7 +2079,7 @@ static int m5_unpack_topics(struct app_buf *buf, struct m5_topic_opts *topics,
 		i++;
 	} while (APPBUF_FREE_READ_SPACE(buf) > 0);
 
-	topics->items = i;
+	msg->items = i;
 
 	read_bytes = buf->offset - read_bytes;
 	if (read_bytes != payload_wsize) {
@@ -2548,13 +2550,13 @@ int m5_pack_subscribe(struct m5_ctx *ctx, struct app_buf *buf,
 		return M5_INVALID_ARGUMENT;
 	}
 
-	rc = m5_topics_wsize(&msg->topics, &pack_info.payload_size);
+	rc = m5_topics_wsize(msg, &pack_info.payload_size);
 	if (rc != M5_SUCCESS) {
 		return rc;
 	}
 
 	/* add the options */
-	pack_info.payload_size += msg->topics.items;
+	pack_info.payload_size += msg->items;
 
 	return pack(ctx, buf, &pack_info, msg, prop);
 }
@@ -2609,7 +2611,7 @@ static int pack_unsubscribe_var_hdr(struct app_buf *buf,
 				    void *data,
 				    struct m5_prop *prop)
 {
-	struct m5_unsubscribe *msg = (struct m5_unsubscribe *)data;
+	struct m5_subscribe *msg = (struct m5_subscribe *)data;
 
 	ARG_UNUSED(pack_info);
 	ARG_UNUSED(prop);
@@ -2622,15 +2624,15 @@ static int pack_unsubscribe_var_hdr(struct app_buf *buf,
 static int pack_unsubscribe_payload(struct app_buf *buf,
 				    struct pack_info *pack_info, void *data)
 {
-	struct m5_unsubscribe *msg = (struct m5_unsubscribe *)data;
+	struct m5_subscribe *msg = (struct m5_subscribe *)data;
 
 	ARG_UNUSED(pack_info);
 
-	return m5_pack_topics(buf, &msg->topics);
+	return m5_pack_topics(buf, msg);
 }
 
 int m5_pack_unsubscribe(struct m5_ctx *ctx, struct app_buf *buf,
-			struct m5_unsubscribe *msg)
+			struct m5_subscribe *msg)
 {
 	struct pack_info pack_info = {
 		.pkt_type = M5_PKT_UNSUBSCRIBE,
@@ -2643,11 +2645,11 @@ int m5_pack_unsubscribe(struct m5_ctx *ctx, struct app_buf *buf,
 	};
 	int rc;
 
-	if (msg->packet_id == 0x00 || msg->topics.items == 0) {
+	if (msg->packet_id == 0x00 || msg->items == 0) {
 		return M5_INVALID_ARGUMENT;
 	}
 
-	rc = m5_topics_wsize(&msg->topics, &pack_info.payload_size);
+	rc = m5_topics_wsize(msg, &pack_info.payload_size);
 	if (rc != M5_SUCCESS) {
 		return rc;
 	}
@@ -3146,7 +3148,7 @@ static int unpack_unsubscribe_var_hdr(struct app_buf *buf,
 				      struct pack_info *pack_info,
 				      void *data, struct m5_prop *prop)
 {
-	struct m5_unsubscribe *msg = (struct m5_unsubscribe *)data;
+	struct m5_subscribe *msg = (struct m5_subscribe *)data;
 	int rc;
 
 	ARG_UNUSED(pack_info);
@@ -3164,14 +3166,14 @@ static int unpack_unsubscribe_payload(struct app_buf *buf,
 				      struct pack_info *pack_info,
 				      void *data)
 {
-	struct m5_unsubscribe *msg = (struct m5_unsubscribe *)data;
+	struct m5_subscribe *msg = (struct m5_subscribe *)data;
 	int rc;
 
 	if (pack_info->payload_size == 0) {
 		return M5_INVALID_ARGUMENT;
 	}
 
-	rc = m5_unpack_topics(buf, &msg->topics, pack_info->payload_size);
+	rc = m5_unpack_topics(buf, msg, pack_info->payload_size);
 	if (rc != M5_SUCCESS) {
 		return rc;
 	}
@@ -3180,7 +3182,7 @@ static int unpack_unsubscribe_payload(struct app_buf *buf,
 }
 
 int m5_unpack_unsubscribe(struct m5_ctx *ctx, struct app_buf *buf,
-			  struct m5_unsubscribe *msg)
+			  struct m5_subscribe *msg)
 {
 	struct pack_info pack_info = {
 		.fixed_hdr = unpack_fixed_hdr,

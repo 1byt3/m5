@@ -265,18 +265,18 @@ struct m5_pub_response {
 	uint8_t reason_code;
 };
 
-struct m5_topic_opts {
-	uint8_t **topics;
-	uint16_t *len;
+struct m5_topic {
+	uint8_t *name;
+	uint16_t len;
 
-	uint8_t *options;
-
-	uint16_t items;
-	uint16_t size;
+	uint8_t options;
 };
 
 struct m5_subscribe {
-	struct m5_topic_opts topics;
+	struct m5_topic *topics;
+
+	uint8_t items;
+	uint8_t size;
 
 	uint16_t packet_id;
 };
@@ -288,12 +288,6 @@ struct m5_suback {
 
 	uint8_t rc_size;
 	uint8_t rc_items;
-};
-
-struct m5_unsubscribe {
-	struct m5_topic_opts topics;
-
-	uint16_t packet_id;
 };
 
 size_t buf_bytes_to_read(struct app_buf *buf);
@@ -423,10 +417,10 @@ int m5_unpack_suback(struct m5_ctx *ctx, struct app_buf *buf,
 		     struct m5_suback *msg, struct m5_prop *prop);
 
 int m5_pack_unsubscribe(struct m5_ctx *ctx, struct app_buf *buf,
-			struct m5_unsubscribe *msg);
+			struct m5_subscribe *msg);
 
 int m5_unpack_unsubscribe(struct m5_ctx *ctx, struct app_buf *buf,
-			  struct m5_unsubscribe *msg);
+			  struct m5_subscribe *msg);
 
 int m5_pack_unsuback(struct m5_ctx *ctx, struct app_buf *buf,
 		     struct m5_suback *msg, struct m5_prop *prop);

@@ -877,21 +877,21 @@ static void test_m5_pubcomp(void)
 	test_m5_pub_msgs(m5_pack_pubcomp, m5_unpack_pubcomp, "PUBCOMP");
 }
 
-static int compare_topics(struct m5_topic_opts *t1, struct m5_topic_opts *t2)
+static int compare_topics(struct m5_subscribe *s1, struct m5_subscribe *s2)
 {
 	uint8_t i;
 	int rc;
 
 	TEST_HDR(__func__);
 
-	if (t1->items != t2->items) {
+	if (s1->items != s2->items) {
 		printf("[%s:%d]\n", __FILE__, __LINE__);
 		return M5_INVALID_ARGUMENT;
 	}
 
-	for (i = 0; i < t1->items; i++) {
-		rc = cmp_str(t1->topics[i], t1->len[i],
-			     t2->topics[i], t2->len[i]);
+	for (i = 0; i < s1->items; i++) {
+		rc = cmp_str(s1->topics[i].name, s1->topics[i].len,
+			     s2->topics[i].name, s2->topics[i].len);
 		if (rc != 0) {
 			printf("[%s:%d]\n", __FILE__, __LINE__);
 			return M5_INVALID_ARGUMENT;
@@ -905,27 +905,26 @@ static void test_m5_subscribe(void)
 {
 	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
 			       .size = sizeof(data) };
-	uint8_t *topics[] = {(uint8_t *)"sensors", (uint8_t *)"doors",
-			     (uint8_t *)"windows"};
-	uint8_t options[] = {M5_QoS0, M5_QoS1, M5_QoS2};
-	uint16_t topics_len[] = {7, 5, 7};
-	struct m5_subscribe msg2 = { 0 };
-	struct m5_subscribe msg = { 0 };
+	struct m5_topic topics[] = {
+		{ .name = (uint8_t *)"sensors",
+		  .len = 7,
+		  .options = M5_QoS0 },
+		{ .name = (uint8_t *)"doors",
+		  .len = 5,
+		  .options = M5_QoS1 },
+		{ .name = (uint8_t *)"windows",
+		  .len = 7,
+		  .options = M5_QoS2 } };
+	struct m5_topic topics2[3];
+	struct m5_subscribe msg2 = { .topics = topics2, .size = 3, .items = 0 };
+	struct m5_subscribe msg = { .topics = topics, .size = 3, .items = 3 };
 	struct m5_prop prop2 = { 0 };
 	struct m5_prop prop = { 0 };
-	uint16_t topics_len2[3];
-	uint8_t *topics2[3];
-	uint8_t options2[3];
 	int rc;
 
 	TEST_HDR(__func__);
 
 	msg.packet_id = 0xABCD;
-	msg.topics.items = 3;
-	msg.topics.size = 3;
-	msg.topics.options = options;
-	msg.topics.topics = topics;
-	msg.topics.len = topics_len;
 
 	m5_prop_subscription_id(&prop, 0x1234);
 	rc = m5_pack_subscribe(&ctx, &buf, &msg, &prop);
@@ -936,12 +935,6 @@ static void test_m5_subscribe(void)
 
 	printf("SUBSCRIBE\n");
 	print_buf(&buf);
-
-	msg2.topics.items = 0;
-	msg2.topics.options = options2;
-	msg2.topics.topics = topics2;
-	msg2.topics.len = topics_len2;
-	msg2.topics.size = 3;
 
 	buf.offset = 0;
 	rc = m5_unpack_subscribe(&ctx, &buf, &msg2, &prop2);
@@ -958,7 +951,7 @@ static void test_m5_subscribe(void)
 		exit(1);
 	}
 
-	rc = compare_topics(&msg.topics, &msg2.topics);
+	rc = compare_topics(&msg, &msg2);
 	if (rc != M5_SUCCESS) {
 		DBG("compare_topics");
 		exit(1);
@@ -1022,22 +1015,24 @@ static void test_m5_unsubscribe(void)
 {
 	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
 			       .size = sizeof(data) };
-	uint8_t *topics[] = {(uint8_t *)"sensors", (uint8_t *)"doors",
-			     (uint8_t *)"windows"};
-	struct m5_unsubscribe msg2 = { 0 };
-	struct m5_unsubscribe msg = { 0 };
-	uint16_t topics_len[] = {7, 5, 7};
-	uint16_t topics_len2[3];
-	uint8_t *t2[3];
+	struct m5_topic topics[] = {
+		{ .name = (uint8_t *)"sensors",
+		  .len = 7,
+		  .options = M5_QoS0 },
+		{ .name = (uint8_t *)"doors",
+		  .len = 5,
+		  .options = M5_QoS1 },
+		{ .name = (uint8_t *)"windows",
+		  .len = 7,
+		  .options = M5_QoS2 } };
+	struct m5_topic topics2[3];
+	struct m5_subscribe msg2 = { .topics = topics2, .size = 3, .items = 0 };
+	struct m5_subscribe msg = { .topics = topics, .size = 3, .items = 3 };
 	int rc;
 
 	TEST_HDR(__func__);
 
 	msg.packet_id = 0x1234;
-	msg.topics.items = 3;
-	msg.topics.size = 3;
-	msg.topics.topics = topics;
-	msg.topics.len = topics_len;
 
 	rc = m5_pack_unsubscribe(&ctx, &buf, &msg);
 	if (rc != M5_SUCCESS) {
@@ -1048,11 +1043,6 @@ static void test_m5_unsubscribe(void)
 	printf("UNSUBSCRIBE\n");
 	print_buf(&buf);
 
-	msg2.topics.items = 0;
-	msg2.topics.topics = t2;
-	msg2.topics.len = topics_len2;
-	msg2.topics.size = 3;
-
 	buf.offset = 0;
 	rc = m5_unpack_unsubscribe(&ctx, &buf, &msg2);
 	if (rc != M5_SUCCESS) {
@@ -1060,7 +1050,7 @@ static void test_m5_unsubscribe(void)
 		exit(1);
 	}
 
-	rc = compare_topics(&msg.topics, &msg2.topics);
+	rc = compare_topics(&msg, &msg2);
 	if (rc != M5_SUCCESS) {
 		DBG("compare_topics");
 		exit(1);
