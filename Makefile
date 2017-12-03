@@ -52,12 +52,15 @@ CFLAGS =				\
 	-Wmissing-prototypes		\
 	-O0 -g
 
+SAMPLE_CFLAGS = -DM5_SKIP_ON_FULL_USER_PROP=1
+
 TESTS =				\
 	bin/test_m5		\
 	bin/test_corner_cases
 
 SAMPLES =			\
-	bin/m5_publisher
+	bin/m5_publisher	\
+	bin/m5_echo_server
 
 VALGRIND = valgrind -q --leak-check=full --error-exitcode=1
 
@@ -78,10 +81,10 @@ obj/m5.o:			\
 	$(M5_SRC)/m5.h
 	$(CC) $(CFLAGS) $(M5_INC) -c -o $@ $<
 
-bin/%:				\
-	$(SAMPLE_SRC)/%.c	\
+bin/m5_%:				\
+	$(SAMPLE_SRC)/m5_%.c	\
 	obj/m5.o
-	$(CC) $(CFLAGS) $(M5_INC) -o $@ $< obj/m5.o
+	$(CC) $(CFLAGS) $(SAMPLE_CFLAGS) $(M5_INC) -o $@ $< obj/m5.o
 
 tests: $(TESTS) dirs
 	@$(foreach test, $(TESTS), ./$(test) || exit 1;)
