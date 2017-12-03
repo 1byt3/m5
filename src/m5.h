@@ -157,7 +157,7 @@ enum m5_reason_code {
 	M5_RC_WILDCARD_SUBSCRIPTION_NOT_SUPPORTED
 };
 
-struct m5_user_prop {
+struct m5_key_val {
 	uint8_t *key;
 	uint8_t *value;
 
@@ -165,16 +165,9 @@ struct m5_user_prop {
 	uint16_t value_len;
 };
 
-#ifndef M5_USER_PROP_SIZE
-#define M5_USER_PROP_SIZE 0
-#endif
-
 struct m5_prop {
-#if M5_USER_PROP_SIZE == 0
-	struct m5_user_prop *_user_prop;
-#else
-	struct m5_user_prop _user_prop[M5_USER_PROP_SIZE];
-#endif
+	struct m5_key_val *_user_prop;
+
 	uint8_t *_auth_method;
 	uint8_t *_auth_data;
 	uint8_t *_content_type;
@@ -217,8 +210,10 @@ struct m5_prop {
 	uint8_t _subscription_id_available;
 	uint8_t _shared_subscription_available;
 
+	/* Max number of elements in the User Properties array */
+	uint8_t _user_prop_size;
 	/* Number of elements in the User Properties array */
-	uint8_t _user_len;
+	uint8_t _user_prop_items;
 
 	uint8_t _request_response_info;
 	uint8_t _request_problem_info;

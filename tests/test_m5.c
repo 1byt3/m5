@@ -38,6 +38,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#define M5_SKIP_ON_FULL_USER_PROP 0
+
 #include "test_common.h"
 #include "m5.c"
 
@@ -408,7 +410,7 @@ static void add_user_properties(struct m5_prop *prop)
 	int rc;
 	int i;
 
-	for (i = 0; i < M5_USER_PROP_SIZE; i++) {
+	for (i = 0; i < prop->_user_prop_size; i++) {
 		rc = m5_prop_add_user_prop(prop, (uint8_t *)"hello", 5,
 					   (uint8_t *)"world!", 6);
 		if (rc != M5_SUCCESS) {
@@ -481,7 +483,7 @@ static void print_prop(struct m5_prop *p)
 	PROP_PRINT_INT(request_response_info);
 	PROP_PRINT_INT(request_problem_info);
 
-	for (i = 0; i < p->_user_len; i++) {
+	for (i = 0; i < p->_user_prop_items; i++) {
 		PROP_PRINT_USER(i);
 	}
 }
@@ -522,9 +524,7 @@ static void test_m5_connect(void)
 	DEBUG_PROP_FLAGS(prop, REMAP_REQUEST_PROBLEM_INFORMATION);
 	m5_prop_request_problem_info(&prop, 1);
 	DEBUG_PROP_FLAGS(prop, REMAP_USER_PROPERTY);
-
 	add_user_properties(&prop);
-
 	DEBUG_PROP_FLAGS(prop, REMAP_AUTH_METHOD);
 	m5_prop_auth_method(&prop, (uint8_t *)"none", 4);
 	DEBUG_PROP_FLAGS(prop, REMAP_AUTH_DATA);
@@ -602,9 +602,7 @@ static void test_m5_connack(void)
 	m5_prop_assigned_client_id(&prop, (uint8_t *)"assigned", 8);
 	m5_prop_topic_alias_max(&prop, 0xABCD);
 	m5_prop_reason_str(&prop, (uint8_t *)"reason", 6);
-
 	add_user_properties(&prop);
-
 	m5_prop_wildcard_subscription_available(&prop, 1);
 	m5_prop_subscription_id_available(&prop, 1);
 	m5_prop_shared_subscription_available(&prop, 1);
@@ -684,8 +682,10 @@ static void test_m5_publish_full(void)
 			       .size = sizeof(data) };
 	struct m5_publish msg2 = { 0 };
 	struct m5_publish msg = { 0 };
-	struct m5_prop prop2 = { 0 };
-	struct m5_prop prop = { 0 };
+	struct m5_key_val key_val2[2];
+	struct m5_prop prop2 = { ._user_prop = key_val2, ._user_prop_size = 2 };
+	struct m5_key_val key_val[2];
+	struct m5_prop prop = { ._user_prop = key_val, ._user_prop_size = 2 };
 	int rc;
 
 	TEST_HDR(__func__);
@@ -704,9 +704,7 @@ static void test_m5_publish_full(void)
 	m5_prop_topic_alias(&prop, 0x12);
 	m5_prop_response_topic(&prop, (uint8_t *)"topic", 5);
 	m5_prop_correlation_data(&prop, (uint8_t *)"data", 4);
-
 	add_user_properties(&prop);
-
 	m5_prop_subscription_id(&prop, 0x12);
 	m5_prop_content_type(&prop, (uint8_t *)"data", 4);
 
@@ -808,8 +806,10 @@ static void test_m5_pub_msgs(ptr_pub pack, ptr_pub unpack, const char *str)
 			       .size = sizeof(data) };
 	struct m5_pub_response msg2 = { 0 };
 	struct m5_pub_response msg = { 0 };
-	struct m5_prop prop2 = { 0 };
-	struct m5_prop prop = { 0 };
+	struct m5_key_val key_val2[2];
+	struct m5_prop prop2 = { ._user_prop = key_val2, ._user_prop_size = 2 };
+	struct m5_key_val key_val[2];
+	struct m5_prop prop = { ._user_prop = key_val, ._user_prop_size = 2 };
 	int rc;
 
 	m5_prop_reason_str(&prop, (uint8_t *)"reason", 6);
@@ -972,8 +972,10 @@ static void test_m5_suback(void)
 	uint8_t reason_code[] = {M5_QoS0, M5_QoS1, M5_QoS2};
 	struct m5_suback msg2 = { 0 };
 	struct m5_suback msg = { 0 };
-	struct m5_prop prop2 = { 0 };
-	struct m5_prop prop = { 0 };
+	struct m5_key_val key_val2[2];
+	struct m5_prop prop2 = { ._user_prop = key_val2, ._user_prop_size = 2 };
+	struct m5_key_val key_val[2];
+	struct m5_prop prop = { ._user_prop = key_val, ._user_prop_size = 2 };
 	uint8_t reason_code2[3];
 	int rc;
 
@@ -985,7 +987,6 @@ static void test_m5_suback(void)
 	msg.rc = reason_code;
 
 	m5_prop_reason_str(&prop, (uint8_t *)"reason", 6);
-
 	add_user_properties(&prop);
 
 	rc = m5_pack_suback(&ctx, &buf, &msg, &prop);
@@ -1072,8 +1073,10 @@ static void test_m5_unsuback(void)
 			       .size = sizeof(data) };
 	uint8_t reason_code[] = {M5_QoS0, M5_QoS1, M5_QoS2};
 	uint8_t reason_code_read[3];
-	struct m5_prop prop2 = { 0 };
-	struct m5_prop prop = { 0 };
+	struct m5_key_val key_val2[2];
+	struct m5_prop prop2 = { ._user_prop = key_val2, ._user_prop_size = 2 };
+	struct m5_key_val key_val[2];
+	struct m5_prop prop = { ._user_prop = key_val, ._user_prop_size = 2 };
 	struct m5_suback msg = { 0 };
 	struct m5_suback msg2 = { .rc_size = 3, .rc = reason_code_read };
 	uint16_t pkt_id = 0x1234;
@@ -1087,7 +1090,6 @@ static void test_m5_unsuback(void)
 	msg.rc_size = 3;
 
 	m5_prop_reason_str(&prop, (uint8_t *)"reason", 6);
-
 	add_user_properties(&prop);
 
 	rc = m5_pack_unsuback(&ctx, &buf, &msg, &prop);
@@ -1158,8 +1160,10 @@ static void test_m5_disconnect(void)
 {
 	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
 			       .size = sizeof(data) };
-	struct m5_prop prop2 = { 0 };
-	struct m5_prop prop = { 0 };
+	struct m5_key_val key_val2[2];
+	struct m5_prop prop2 = { ._user_prop = key_val2, ._user_prop_size = 2 };
+	struct m5_key_val key_val[2];
+	struct m5_prop prop = { ._user_prop = key_val, ._user_prop_size = 2 };
 	uint8_t reason_code;
 	int rc;
 
@@ -1167,9 +1171,7 @@ static void test_m5_disconnect(void)
 
 	m5_prop_session_expiry_interval(&prop, 0x1234);
 	m5_prop_reason_str(&prop, (uint8_t *)"reason", 6);
-
 	add_user_properties(&prop);
-
 	m5_prop_server_reference(&prop, (uint8_t *)"reference", 9);
 
 	m5_prop_session_expiry_interval(&prop, 0x1234);
@@ -1259,8 +1261,10 @@ static void test_m5_auth(void)
 {
 	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
 			       .size = sizeof(data) };
-	struct m5_prop prop2 = { 0 };
-	struct m5_prop prop = { 0 };
+	struct m5_key_val key_val2[2];
+	struct m5_prop prop2 = { ._user_prop = key_val2, ._user_prop_size = 2 };
+	struct m5_key_val key_val[2];
+	struct m5_prop prop = { ._user_prop = key_val, ._user_prop_size = 2 };
 	uint8_t ret_code;
 	int rc;
 
@@ -1268,7 +1272,6 @@ static void test_m5_auth(void)
 
 	m5_prop_auth_method(&prop, (uint8_t *)"method", 6);
 	m5_prop_auth_data(&prop, (uint8_t *)"method_payload", 14);
-
 	add_user_properties(&prop);
 
 	rc = m5_pack_auth(&ctx, &buf, M5_RC_CONTINUE_AUTHENTICATION, &prop);

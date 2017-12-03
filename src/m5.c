@@ -586,13 +586,13 @@ int m5_prop_add_user_prop(struct m5_prop *prop,
 			  uint8_t *key, uint16_t key_len,
 			  uint8_t *value, uint16_t value_len)
 {
-	struct m5_user_prop *user;
+	struct m5_key_val *user;
 
 	if (prop == NULL) {
 		return M5_INVALID_ARGUMENT;
 	}
 
-	if (prop->_user_len + 1 > M5_USER_PROP_SIZE) {
+	if (prop->_user_prop_items >= prop->_user_prop_size) {
 		if (M5_SKIP_ON_FULL_USER_PROP == 0) {
 			return M5_USER_PROPERTY_ARRAY_IS_FULL;
 		}
@@ -602,13 +602,13 @@ int m5_prop_add_user_prop(struct m5_prop *prop,
 
 	prop->flags |=  M5_2POW(REMAP_USER_PROPERTY);
 
-	user = &prop->_user_prop[prop->_user_len];
+	user = &prop->_user_prop[prop->_user_prop_items];
 	user->key = key;
 	user->key_len = key_len;
 	user->value = value;
 	user->value_len = value_len;
 
-	prop->_user_len += 1;
+	prop->_user_prop_items += 1;
 	prop->_user_prop_wsize += 2 * M5_STR_LEN_SIZE + key_len + value_len;
 
 	return M5_SUCCESS;
@@ -735,7 +735,8 @@ static int m5_len_prop_user(struct m5_prop *prop, enum m5_prop_remap prop_id,
 {
 	ARG_UNUSED(prop_id);
 
-	*wsize = PROP_ID_BYTE_WSIZE * prop->_user_len + prop->_user_prop_wsize;
+	*wsize = PROP_ID_BYTE_WSIZE * prop->_user_prop_items +
+		 prop->_user_prop_wsize;
 
 	return M5_SUCCESS;
 }
@@ -1144,7 +1145,7 @@ static void prop2buf_user_prop(struct app_buf *buf, struct m5_prop *prop)
 {
 	uint8_t i;
 
-	for (i = 0; i < prop->_user_len; i++) {
+	for (i = 0; i < prop->_user_prop_items; i++) {
 		m5_add_u8(buf, USER_PROPERTY);
 		m5_add_binary(buf, prop->_user_prop[i].key,
 			      prop->_user_prop[i].key_len);

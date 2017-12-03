@@ -48,7 +48,7 @@ CFLAGS =				\
 	-Wno-missing-field-initializers	\
 	-Wno-missing-braces		\
 	-Wmissing-prototypes		\
-	-O0 -g -DM5_USER_PROP_SIZE=2
+	-O0 -g
 
 TESTS =				\
 	bin/test_m5		\
