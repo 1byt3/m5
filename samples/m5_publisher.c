@@ -501,8 +501,9 @@ static void signal_handler(int id)
 
 int main(void)
 {
-	signal(SIGINT, signal_handler);
 	signal(SIGPIPE, signal_handler);
+	signal(SIGTERM, signal_handler);
+	signal(SIGINT, signal_handler);
 
 	return publisher();
 }
