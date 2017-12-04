@@ -38,12 +38,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "m5.h"
+#include "samples_common.h"
 
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <sys/types.h>
-#include <sys/time.h>
 
 #if defined(__FreeBSD__)
 #include <sys/endian.h>
@@ -55,109 +52,13 @@
 #include <string.h>
 #include <stdlib.h>
 #include <signal.h>
-#include <stdio.h>
 
 #define SERVER_ADDR	{ 127, 0, 0, 1 }
 #define SERVER_PORT	1863
 
-#define RX_TX_TIMEOUT	5 /* seconds */
-
-#define MAX_BUF_SIZE		128
-#define MAX_ARRAY_ELEMENTS	16
-
-#define DBG(msg)	\
-		fprintf(stderr, "[%s:%d] %s\n", __func__, __LINE__, msg)
-
 #define LISTEN_BACKLOG	1
 
-#define READ	1
-#define WRITE	2
-
 static int loop_forever = 1;
-
-static int tcp_descriptor_ready(int fd, int type)
-{
-	struct timeval timeout;
-	fd_set set;
-	int rc;
-
-	timeout.tv_sec = RX_TX_TIMEOUT;
-	timeout.tv_usec = 0;
-
-	FD_ZERO(&set);
-	FD_SET(fd, &set);
-
-	rc = select(FD_SETSIZE,
-		    type == READ ? &set : NULL,
-		    type == WRITE ? &set : NULL,
-		    NULL,
-		    &timeout);
-	if (rc <= 0) {
-		return -1;
-	}
-
-	return 0;
-}
-
-static int tcp_accept(int server_fd, struct sockaddr_in *sa, int *client_fd)
-{
-	socklen_t len;
-	int rc;
-
-	rc = tcp_descriptor_ready(server_fd, READ);
-	if (rc != 0) {
-		return -1;
-	}
-
-	len = sizeof(*sa);
-	*client_fd = accept(server_fd, (struct sockaddr *)sa, &len);
-	if (*client_fd < 0 || len != sizeof(*sa)) {
-		return -1;
-	}
-
-	return 0;
-}
-
-static int tcp_read(int fd, struct app_buf *buf)
-{
-	ssize_t read_bytes;
-	int rc;
-
-	rc = tcp_descriptor_ready(fd, READ);
-	if (rc != 0) {
-		return -1;
-	}
-
-	buf_reset(buf);
-	read_bytes = read(fd, buf->data, buf->size);
-	if (read_bytes <= 0) {
-		DBG("read");
-		return -1;
-	}
-
-	buf->len = read_bytes;
-
-	return 0;
-}
-
-static int tcp_write(int socket_fd, struct app_buf *buf)
-{
-	ssize_t written_bytes;
-	int rc;
-
-	rc = tcp_descriptor_ready(socket_fd, WRITE);
-	if (rc != 0) {
-		return -1;
-	}
-
-	written_bytes = write(socket_fd, buf->data, buf->len);
-	if (written_bytes <= 0 || (size_t)written_bytes != buf->len) {
-		DBG("write");
-		return -1;
-	}
-
-	return 0;
-}
 
 const char * const pkt_names[] = {
 	NULL,
@@ -430,6 +331,8 @@ static void signal_handler(int id)
 
 int main(void)
 {
+	set_tcp_timeout(60); /* seconds */
+
 	signal(SIGPIPE, signal_handler);
 	signal(SIGTERM, signal_handler);
 	signal(SIGINT, signal_handler);

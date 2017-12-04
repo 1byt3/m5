@@ -44,12 +44,13 @@ SAMPLES =				\
 
 all: $(SAMPLES)
 
-$(OBJS_DIR)/m5_%.o:		\
-	$(SAMPLES_DIR)/m5_%.c
+$(OBJS_DIR)/%.o:		\
+	$(SAMPLES_DIR)/%.c
 	$(CC) $(CFLAGS) $(SAMPLES_CFLAGS) -I. $(M5_INC) -c -o $@ $<
 
-$(BINS_DIR)/m5_%:		\
-	$(OBJS_DIR)/m5_%.o	\
+$(BINS_DIR)/m5_%:			\
+	$(OBJS_DIR)/m5_%.o		\
+	$(OBJS_DIR)/samples_common.o	\
 	$(M5_OBJ)
 	$(CC) -o $@ $^
 

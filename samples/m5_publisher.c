@@ -38,12 +38,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "m5.h"
+#include "samples_common.h"
 
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <sys/types.h>
-#include <sys/time.h>
 
 #if defined(__FreeBSD__)
 #include <sys/endian.h>
@@ -55,161 +52,15 @@
 #include <string.h>
 #include <stdlib.h>
 #include <signal.h>
-#include <stdio.h>
 
 #define PEER_ADDR	{ 127, 0, 0, 1 }
 #define PEER_PORT	1863
-
-#define RX_TX_TIMEOUT	5 /* seconds */
 
 #define CLIENT_ID	"m5_publisher"
 #define TOPIC_NAME	"greetings"
 #define PAYLOAD		"Hello, World!"
 
-#define DBG(msg)	\
-		fprintf(stderr, "[%s:%d] %s\n", __func__, __LINE__, msg)
-
 static int loop_forever = 1;
-
-static int tcp_connect(int *socket_fd)
-{
-	struct sockaddr_in sa = { 0 };
-	uint8_t peer[] = PEER_ADDR;
-	uint32_t addr;
-	int rc = -1;
-
-	*socket_fd = socket(AF_INET, SOCK_STREAM, 0);
-	if (*socket_fd < 0) {
-		DBG("socket");
-		goto lb_exit;
-	}
-
-	addr = (peer[0] << 24) | (peer[1] << 16) | (peer[2] << 8) | peer[3];
-	sa.sin_family = AF_INET;
-	sa.sin_port = htobe16(PEER_PORT);
-	sa.sin_addr.s_addr = htobe32(addr);
-
-	rc = connect(*socket_fd, (struct sockaddr *)&sa, sizeof(sa));
-	if (rc != 0) {
-		DBG("connect");
-		goto lb_close;
-	}
-
-	return 0;
-
-lb_close:
-	close(*socket_fd);
-
-lb_exit:
-	return rc;
-}
-
-static void tcp_disconnect(int socket_fd)
-{
-	close(socket_fd);
-}
-
-static ssize_t tcp_read(int socket_fd, struct app_buf *buf)
-{
-	struct timeval timeout;
-	ssize_t read_bytes;
-	fd_set set;
-	int rc;
-
-	timeout.tv_sec = RX_TX_TIMEOUT;
-	timeout.tv_usec = 0;
-
-	FD_ZERO(&set);
-	FD_SET(socket_fd, &set);
-
-	rc = select(FD_SETSIZE, &set, NULL, NULL, &timeout);
-	if (rc <= 0) {
-		DBG("read timeout");
-		return -1;
-	}
-
-	buf_reset(buf);
-	read_bytes = read(socket_fd, buf->data, buf->size);
-	if (read_bytes <= 0) {
-		DBG("read error");
-		return -1;
-	}
-
-	buf->len = read_bytes;
-
-	return 0;
-}
-
-static int tcp_write(int socket_fd, struct app_buf *buf)
-{
-	struct timeval timeout;
-	ssize_t written_bytes;
-	fd_set set;
-	int rc;
-
-	timeout.tv_sec = RX_TX_TIMEOUT;
-	timeout.tv_usec = 0;
-
-	FD_ZERO(&set);
-	FD_SET(socket_fd, &set);
-
-	rc = select(FD_SETSIZE, NULL, &set, NULL, &timeout);
-	if (rc <= 0) {
-		DBG("write timeout");
-		return -1;
-	}
-
-	written_bytes = write(socket_fd, buf->data, buf->len);
-	if (written_bytes <= 0 || (size_t)written_bytes != buf->len) {
-		DBG("write");
-		return -1;
-	}
-
-	return 0;
-}
-
-static int pack_msg_write(int socket_fd, enum m5_pkt_type type, void *msg)
-{
-	static uint8_t data[128];
-	struct app_buf buf = { .data = data, .size = sizeof(data) };
-	int rc;
-
-	switch (type) {
-	default:
-		DBG("unexpected packet type");
-		goto lb_error;
-	case M5_PKT_PUBLISH:
-		rc = m5_pack_publish(NULL, &buf,
-				     (struct m5_publish *)msg, NULL);
-		break;
-	case M5_PKT_PUBREL:
-		rc = m5_pack_pubrel(NULL, &buf,
-				    (struct m5_pub_response *)msg, NULL);
-		break;
-	case M5_PKT_PINGRESP:
-		rc = m5_pack_pingresp(NULL, &buf);
-		break;
-	case M5_PKT_CONNECT:
-		rc = m5_pack_connect(NULL, &buf,
-				     (struct m5_connect *)msg, NULL);
-	}
-
-	if (rc != M5_SUCCESS) {
-		DBG("pack");
-		goto lb_error;
-	}
-
-	rc = tcp_write(socket_fd, &buf);
-	if (rc != 0) {
-		DBG("tcp_write");
-		goto lb_error;
-	}
-
-	return 0;
-
-lb_error:
-	return -1;
-}
 
 static int publisher_next_state(int current_state, enum m5_qos qos)
 {
@@ -235,54 +86,6 @@ static int publisher_next_state(int current_state, enum m5_qos qos)
 	default:
 		return -1;
 	}
-}
-
-static int publisher_connect(int *socket_fd)
-{
-	struct m5_connect msg_connect = { .client_id = (uint8_t *)CLIENT_ID,
-					  .client_id_len = strlen(CLIENT_ID),
-					  .keep_alive = 0, };
-	static uint8_t data[128] = { 0 };
-	struct app_buf buf = { .data = data,
-			       .size = sizeof(data) };
-	struct m5_connack msg_connack = { 0 };
-	struct m5_prop prop = { 0 };
-	int rc;
-
-	printf("TCP connect\n");
-	rc = tcp_connect(socket_fd);
-	if (rc != 0) {
-		DBG("tcp_connect");
-		goto lb_error;
-	}
-
-	printf("Sending: CONNECT\n");
-	rc = pack_msg_write(*socket_fd, M5_PKT_CONNECT, &msg_connect);
-	if (rc != 0) {
-		DBG("pack_msg_write CONNECT");
-		goto lb_error_disconnect;
-	}
-
-	rc = tcp_read(*socket_fd, &buf);
-	if (rc != 0) {
-		DBG("tcp_read");
-		goto lb_error_disconnect;
-	}
-
-	rc = m5_unpack_connack(NULL, &buf, &msg_connack, &prop);
-	if (rc != M5_SUCCESS || msg_connack.return_code != M5_RC_SUCCESS) {
-		DBG("m5_unpack_connack");
-		goto lb_error_disconnect;
-	}
-	printf("Received: CONNACK\n");
-
-	return 0;
-
-lb_error_disconnect:
-	tcp_disconnect(*socket_fd);
-
-lb_error:
-	return -1;
 }
 
 /*
@@ -461,11 +264,12 @@ lb_error:
 static int publisher(void)
 {
 	uint8_t qos[] = { M5_QoS0, M5_QoS1, M5_QoS2 };
+	uint8_t peer_addr[] = PEER_ADDR;
 	int socket_fd;
 	int i = 0;
 	int rc;
 
-	rc = publisher_connect(&socket_fd);
+	rc = client_connect(&socket_fd, CLIENT_ID, peer_addr, PEER_PORT);
 	if (rc != 0) {
 		DBG("publisher_connect");
 		goto lb_exit;
@@ -501,6 +305,8 @@ static void signal_handler(int id)
 
 int main(void)
 {
+	set_tcp_timeout(5); /* seconds */
+
 	signal(SIGPIPE, signal_handler);
 	signal(SIGTERM, signal_handler);
 	signal(SIGINT, signal_handler);
