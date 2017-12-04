@@ -64,7 +64,7 @@ int tcp_write(int fd, struct app_buf *buf);
 int tcp_listen(uint8_t server_addr[4], uint16_t port, int backlog,
 	       int *server_fd);
 
-int tcp_accept(int server_fd, struct sockaddr_in *sa, int *client_fd);
+int tcp_accept(int server_fd, struct sockaddr_in *client_sa, int *client_fd);
 
 int tcp_connect(int *socket_fd, uint8_t peer[4], uint16_t peer_port);
 

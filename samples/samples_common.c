@@ -170,7 +170,7 @@ lb_exit:
 	return rc;
 }
 
-int tcp_accept(int server_fd, struct sockaddr_in *sa, int *client_fd)
+int tcp_accept(int server_fd, struct sockaddr_in *client_sa, int *client_fd)
 {
 	socklen_t len;
 	int rc;
@@ -180,9 +180,9 @@ int tcp_accept(int server_fd, struct sockaddr_in *sa, int *client_fd)
 		return -1;
 	}
 
-	len = sizeof(*sa);
-	*client_fd = accept(server_fd, (struct sockaddr *)sa, &len);
-	if (*client_fd < 0 || len != sizeof(*sa)) {
+	len = sizeof(*client_sa);
+	*client_fd = accept(server_fd, (struct sockaddr *)client_sa, &len);
+	if (*client_fd < 0 || len != sizeof(*client_sa)) {
 		return -1;
 	}
 
