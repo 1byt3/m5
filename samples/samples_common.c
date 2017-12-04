@@ -333,6 +333,19 @@ int pack_msg_write(int socket_fd, enum m5_pkt_type type, void *msg)
 	case M5_PKT_CONNECT:
 		rc = m5_pack_connect(NULL, &buf,
 				     (struct m5_connect *)msg, NULL);
+		break;
+	case M5_PKT_CONNACK:
+		rc = m5_pack_connack(NULL, &buf,
+				     (struct m5_connack *)msg, NULL);
+		break;
+	case M5_PKT_SUBSCRIBE:
+		rc = m5_pack_subscribe(NULL, &buf,
+				       (struct m5_subscribe *)msg, NULL);
+		break;
+	case M5_PKT_SUBACK:
+		rc = m5_pack_suback(NULL, &buf,
+				    (struct m5_suback *)msg, NULL);
+		break;
 	}
 
 	if (rc != M5_SUCCESS) {
