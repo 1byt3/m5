@@ -130,6 +130,46 @@ int tcp_write(int fd, struct app_buf *buf)
 	return 0;
 }
 
+int tcp_listen(uint8_t server_addr[4], uint16_t port, int backlog,
+	       int *server_fd)
+{
+	struct sockaddr_in sa = { 0 };
+	uint32_t addr;
+	int rc = -1;
+
+	*server_fd = socket(AF_INET, SOCK_STREAM, 0);
+	if (*server_fd < 0) {
+		DBG("socket");
+		goto lb_exit;
+	}
+
+	addr = (server_addr[0] << 24) | (server_addr[1] << 16) |
+	       (server_addr[2] << 8) | server_addr[3];
+	sa.sin_family = AF_INET;
+	sa.sin_port = htobe16(port);
+	sa.sin_addr.s_addr = htobe32(addr);
+
+	rc = bind(*server_fd, (struct sockaddr *)&sa, sizeof(sa));
+	if (rc != 0) {
+		DBG("bind");
+		goto lb_close;
+	}
+
+	rc = listen(*server_fd, backlog);
+	if (rc != 0) {
+		DBG("listen");
+		goto lb_close;
+	}
+
+	return 0;
+
+lb_close:
+	tcp_disconnect(*server_fd);
+
+lb_exit:
+	return rc;
+}
+
 int tcp_accept(int server_fd, struct sockaddr_in *sa, int *client_fd)
 {
 	socklen_t len;

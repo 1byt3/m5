@@ -265,41 +265,22 @@ lb_exit:
 
 static int echo_server(void)
 {
-	struct sockaddr_in sa = { 0 };
-	uint8_t server[] = SERVER_ADDR;
-	uint32_t addr;
-	int socket_fd;
-	int rc = -1;
+	uint8_t server_addr[] = SERVER_ADDR;
+	int server_fd;
+	int rc;
 
-	socket_fd = socket(AF_INET, SOCK_STREAM, 0);
-	if (socket_fd < 0) {
-		DBG("socket");
+	rc = tcp_listen(server_addr, SERVER_PORT, LISTEN_BACKLOG, &server_fd);
+	if (rc != 0) {
+		DBG("tcp_listen");
 		goto lb_exit;
 	}
 
-	addr = (server[0] << 24) | (server[1] << 16) |
-	       (server[2] << 8) | server[3];
-	sa.sin_family = AF_INET;
-	sa.sin_port = htobe16(SERVER_PORT);
-	sa.sin_addr.s_addr = htobe32(addr);
-
-	rc = bind(socket_fd, (struct sockaddr *)&sa, sizeof(sa));
-	if (rc != 0) {
-		DBG("bind");
-		goto lb_close;
-	}
-
-	rc = listen(socket_fd, LISTEN_BACKLOG);
-	if (rc != 0) {
-		DBG("listen");
-		goto lb_close;
-	}
-
 	while (loop_forever != 0) {
+		struct sockaddr_in client_sa = { 0 };
 		int client_fd;
 
 		printf("Waiting for connections [CTRL + C to quit]\n");
-		rc = tcp_accept(socket_fd, &sa, &client_fd);
+		rc = tcp_accept(server_fd, &client_sa, &client_fd);
 		if (rc != 0) {
 			continue;
 		}
@@ -308,14 +289,12 @@ static int echo_server(void)
 			rc = echo(client_fd);
 		} while (rc == 0 && loop_forever != 0);
 
-		close(client_fd);
+		tcp_disconnect(client_fd);
 		printf("Connection closed\n");
 	}
 
+	tcp_disconnect(server_fd);
 	rc = 0;
-
-lb_close:
-	close(socket_fd);
 
 lb_exit:
 	return rc;
