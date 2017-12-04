@@ -38,57 +38,18 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-VALGRIND = valgrind -q --leak-check=full --error-exitcode=1
+SAMPLES =				\
+	$(BINS_DIR)/m5_publisher	\
+	$(BINS_DIR)/m5_echo_server
 
-SAMPLES_CFLAGS += -DM5_SKIP_ON_FULL_USER_PROP=1
-CFLAGS +=				\
-	-Wall -Wextra -Werror		\
-	-Wno-missing-field-initializers	\
-	-Wno-missing-braces		\
-	-Wmissing-prototypes		\
-	-O0 -g
+all: $(SAMPLES)
 
-PROJECT_DIR = $(CURDIR)
-M5_SRC = $(PROJECT_DIR)/src
-M5_INC = -I$(M5_SRC)
+$(OBJS_DIR)/m5_%.o:		\
+	$(SAMPLES_DIR)/m5_%.c
+	$(CC) $(CFLAGS) $(SAMPLES_CFLAGS) -I. $(M5_INC) -c -o $@ $<
 
-SAMPLES_DIR = $(PROJECT_DIR)/samples
-TESTS_DIR = $(PROJECT_DIR)/tests
-OBJS_DIR = $(PROJECT_DIR)/obj
-BINS_DIR = $(PROJECT_DIR)/bin
+$(BINS_DIR)/m5_%:		\
+	$(OBJS_DIR)/m5_%.o	\
+	$(M5_OBJ)
+	$(CC) -o $@ $^
 
-M5_OBJ = $(OBJS_DIR)/m5.o
-
-export
-
-all: dirs $(M5_OBJ) build_tests build_samples
-
-dirs:
-	@mkdir -p $(BINS_DIR)
-	@mkdir -p $(OBJS_DIR)
-
-$(M5_OBJ):		\
-	$(M5_SRC)/m5.c	\
-	$(M5_SRC)/m5.h
-	$(CC) $(CLAGS) $(M5_INC) -c -o $@ $<
-
-build_tests:
-	cd $(TESTS_DIR) && $(MAKE)
-
-build_samples:
-	cd $(SAMPLES_DIR)  && $(MAKE)
-
-tests:
-	cd $(TESTS_DIR) && $(MAKE) tests
-
-memtest:
-	cd $(TESTS_DIR) && $(MAKE) memtest
-
-checkpatch:
-	@git --no-pager diff HEAD~ HEAD | perl ./checkpatch.pl -q --no-tree --ignore BRACES,FILE_PATH_CHANGES,CONST_STRUCT -
-
-clean:
-	@rm -f bin/*
-	@rm -f obj/*
-
-.PHONY: all dirs build_tests build_samples tests memtest checkpatch clean

@@ -38,57 +38,23 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-VALGRIND = valgrind -q --leak-check=full --error-exitcode=1
+TESTS =					\
+	$(BINS_DIR)/test_m5		\
+	$(BINS_DIR)/test_corner_cases
 
-SAMPLES_CFLAGS += -DM5_SKIP_ON_FULL_USER_PROP=1
-CFLAGS +=				\
-	-Wall -Wextra -Werror		\
-	-Wno-missing-field-initializers	\
-	-Wno-missing-braces		\
-	-Wmissing-prototypes		\
-	-O0 -g
+all: $(TESTS)
 
-PROJECT_DIR = $(CURDIR)
-M5_SRC = $(PROJECT_DIR)/src
-M5_INC = -I$(M5_SRC)
-
-SAMPLES_DIR = $(PROJECT_DIR)/samples
-TESTS_DIR = $(PROJECT_DIR)/tests
-OBJS_DIR = $(PROJECT_DIR)/obj
-BINS_DIR = $(PROJECT_DIR)/bin
-
-M5_OBJ = $(OBJS_DIR)/m5.o
-
-export
-
-all: dirs $(M5_OBJ) build_tests build_samples
-
-dirs:
-	@mkdir -p $(BINS_DIR)
-	@mkdir -p $(OBJS_DIR)
-
-$(M5_OBJ):		\
+$(BINS_DIR)/test_%:	\
+	test_%.c	\
 	$(M5_SRC)/m5.c	\
 	$(M5_SRC)/m5.h
-	$(CC) $(CLAGS) $(M5_INC) -c -o $@ $<
+	$(CC) $(CFLAGS) $(M5_INC) -o $@ $<
 
-build_tests:
-	cd $(TESTS_DIR) && $(MAKE)
+tests: $(TESTS)
+	@$(foreach test, $(TESTS), $(test) || exit 1;)
 
-build_samples:
-	cd $(SAMPLES_DIR)  && $(MAKE)
+memtest: $(TESTS)
+	@$(foreach test, $(TESTS), $(VALGRIND) $(test) || exit 1;)
 
-tests:
-	cd $(TESTS_DIR) && $(MAKE) tests
+.PHONY: all tests memtest
 
-memtest:
-	cd $(TESTS_DIR) && $(MAKE) memtest
-
-checkpatch:
-	@git --no-pager diff HEAD~ HEAD | perl ./checkpatch.pl -q --no-tree --ignore BRACES,FILE_PATH_CHANGES,CONST_STRUCT -
-
-clean:
-	@rm -f bin/*
-	@rm -f obj/*
-
-.PHONY: all dirs build_tests build_samples tests memtest checkpatch clean
