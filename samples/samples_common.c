@@ -153,12 +153,27 @@ int tcp_listen(uint8_t server_addr[4], uint16_t port, int backlog,
 {
 	struct sockaddr_in sa = { 0 };
 	uint32_t addr;
+	int option = 1;
 	int rc = -1;
 
 	*server_fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (*server_fd < 0) {
 		DBG("socket");
 		goto lb_exit;
+	}
+
+	rc = setsockopt(*server_fd, SOL_SOCKET, SO_REUSEADDR,
+			&option, sizeof(option));
+	if (rc != 0) {
+		DBG("setsockopt SO_REUSEADDR");
+		goto lb_close;
+	}
+
+	rc = setsockopt(*server_fd, SOL_SOCKET, SO_REUSEPORT,
+			&option, sizeof(option));
+	if (rc != 0) {
+		DBG("setsockopt SO_REUSEPORT");
+		goto lb_close;
 	}
 
 	addr = (server_addr[0] << 24) | (server_addr[1] << 16) |
