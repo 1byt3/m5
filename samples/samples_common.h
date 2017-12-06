@@ -41,6 +41,8 @@
 #ifndef __SAMPLES_COMMON_H__
 #define __SAMPLES_COMMON_H__
 
+#define M5_SKIP_ON_FULL_USER_PROP 1
+
 #include "m5.h"
 
 #include <sys/socket.h>
