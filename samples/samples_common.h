@@ -85,5 +85,7 @@ int publisher_next_state(int current_state, enum m5_qos qos);
 
 int publish_message(int fd, struct m5_publish *msg, int *loop_forever);
 
+void print_packet(enum m5_pkt_type type, void *data, const char *legend);
+
 #endif
 

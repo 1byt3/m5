@@ -65,24 +65,6 @@ void set_tcp_timeout(int timeout)
 	rx_tx_timeout = timeout;
 }
 
-const char * const pkt_names[] = {
-	NULL,
-	"CONNECT",
-	"CONNACK",
-	"PUBLISH",
-	"PUBACK",
-	"PUBREC",
-	"PUBREL",
-	"PUBCOMP",
-	"SUBSCRIBE",
-	"SUBACK",
-	"UNSUBSCRIBE",
-	"UNSUBACK",
-	"PINGREQ",
-	"PINGRESP",
-	"DISCONNECT",
-	"AUTH" };
-
 static int tcp_descriptor_ready(int fd, enum descriptor_op type)
 {
 	struct timeval timeout;
@@ -280,7 +262,6 @@ int client_connect(int *socket_fd, const char *client_id,
 		goto lb_error;
 	}
 
-	printf("Sending: CONNECT\n");
 	rc = pack_msg_write(*socket_fd, M5_PKT_CONNECT, &msg_connect);
 	if (rc != 0) {
 		DBG("pack_msg_write CONNECT");
@@ -298,7 +279,8 @@ int client_connect(int *socket_fd, const char *client_id,
 		DBG("m5_unpack_connack");
 		goto lb_error_disconnect;
 	}
-	printf("Received: CONNACK\n");
+
+	print_packet(M5_PKT_CONNACK, &msg_connack, "Received");
 
 	return 0;
 
@@ -347,6 +329,8 @@ int pack_msg_write(int socket_fd, enum m5_pkt_type type, void *msg)
 				    (struct m5_suback *)msg, NULL);
 		break;
 	}
+
+	print_packet(type, msg, "Sending");
 
 	if (rc != M5_SUCCESS) {
 		DBG("pack");
@@ -588,13 +572,13 @@ lb_parse_another_packet:
 		return -1;
 	}
 
-	printf("Received: %s\n", pkt_names[pkt_type]);
-
 	rc = fptr_unpack[pkt_type](NULL, &in, msgs[pkt_type], &prop);
 	if (rc != 0) {
 		DBG("unpack");
 		return -1;
 	}
+
+	print_packet(pkt_type, msgs[pkt_type], "Received");
 
 	if (validate_packet != NULL) {
 		rc = validate_packet(pkt_type, msgs[pkt_type], user_data);
@@ -618,8 +602,6 @@ lb_parse_another_packet:
 		return 0;
 	}
 
-	printf("Sending: %s\n", pkt_names[pkt_resp[pkt_type]]);
-
 	if (prep_resp[pkt_type] != NULL) {
 		rc = prep_resp[pkt_type](msgs[pkt_resp[pkt_type]],
 					 msgs[pkt_type]);
@@ -628,6 +610,8 @@ lb_parse_another_packet:
 			return -1;
 		}
 	}
+
+	print_packet(pkt_resp[pkt_type], msgs[pkt_resp[pkt_type]], "Sending");
 
 	buf_reset(&out);
 	rc = fptr_pack[pkt_resp[pkt_type]](NULL, &out,
@@ -753,5 +737,199 @@ int publish_message(int fd, struct m5_publish *msg, int *loop_forever)
 	}
 
 	return 0;
+}
+
+const char * const pkt_names[] = {
+	NULL,
+	"CONNECT",
+	"CONNACK",
+	"PUBLISH",
+	"PUBACK",
+	"PUBREC",
+	"PUBREL",
+	"PUBCOMP",
+	"SUBSCRIBE",
+	"SUBACK",
+	"UNSUBSCRIBE",
+	"UNSUBACK",
+	"PINGREQ",
+	"PINGRESP",
+	"DISCONNECT",
+	"AUTH" };
+
+static void print_connect(void *data, const char *legend)
+{
+	struct m5_connect *msg = (struct m5_connect *)data;
+
+	printf("%s: %s\n\tClient Id: %.*s, Keep alive: %u\n",
+		legend,
+		pkt_names[M5_PKT_CONNECT],
+		msg->client_id_len,
+		msg->client_id,
+		msg->keep_alive);
+}
+
+static void print_connack(void *data, const char *legend)
+{
+	struct m5_connack *msg = (struct m5_connack *)data;
+
+	printf("%s: %s\n\tSession present: %d, Return code: %u\n",
+		legend,
+		pkt_names[M5_PKT_CONNACK],
+		msg->session_present,
+		msg->return_code);
+}
+
+static void print_publish(void *data, const char *legend)
+{
+	struct m5_publish *msg = (struct m5_publish *)data;
+
+	printf("%s: %s\n\tTopic: %.*s, QoS: %02x, Packet Id: %u\n",
+		legend,
+		pkt_names[M5_PKT_PUBLISH],
+		msg->topic_name_len,
+		msg->topic_name,
+		msg->qos,
+		msg->packet_id);
+}
+
+static void print_pub_response(void *data, const char *legend, int pkt_type)
+{
+	struct m5_pub_response *msg = (struct m5_pub_response *)data;
+
+	printf("%s: %s\n\tPacket Id: %u, Response Code: 0x%02x\n",
+		legend,
+		pkt_names[pkt_type],
+		msg->packet_id,
+		msg->reason_code);
+}
+
+static void print_puback(void *data, const char *legend)
+{
+	print_pub_response(data, legend, M5_PKT_PUBACK);
+}
+
+static void print_pubrec(void *data, const char *legend)
+{
+	print_pub_response(data, legend, M5_PKT_PUBREC);
+}
+
+static void print_pubrel(void *data, const char *legend)
+{
+	print_pub_response(data, legend, M5_PKT_PUBREL);
+}
+
+static void print_pubcomp(void *data, const char *legend)
+{
+	print_pub_response(data, legend, M5_PKT_PUBCOMP);
+}
+
+static void print_subscribe_unsubscribe(void *data, const char *legend, int pkt)
+{
+	struct m5_subscribe *msg = (struct m5_subscribe *)data;
+
+	printf("%s: %s\n\tPacket Id: %u, Topics: %u\n",
+		legend,
+		pkt_names[pkt],
+		msg->packet_id,
+		msg->items);
+}
+
+static void print_subscribe(void *data, const char *legend)
+{
+	print_subscribe_unsubscribe(data, legend, M5_PKT_SUBSCRIBE);
+}
+
+static void print_unsubscribe(void *data, const char *legend)
+{
+	print_subscribe_unsubscribe(data, legend, M5_PKT_UNSUBSCRIBE);
+}
+
+static void print_suback_unsuback(void *data, const char *legend, int pkt)
+{
+	struct m5_suback *msg = (struct m5_suback *)data;
+
+	printf("%s: %s\n\tPacket Id: %u, Topics: %u\n",
+		legend,
+		pkt_names[pkt],
+		msg->packet_id,
+		msg->rc_items);
+}
+
+static void print_suback(void *data, const char *legend)
+{
+	print_suback_unsuback(data, legend, M5_PKT_SUBACK);
+}
+
+static void print_unsuback(void *data, const char *legend)
+{
+	print_suback_unsuback(data, legend, M5_PKT_UNSUBACK);
+}
+
+static void print_ping(void *data, const char *legend, int pkt)
+{
+	(void)data;
+
+	printf("%s: %s\n", legend, pkt_names[pkt]);
+}
+
+static void print_pingreq(void *data, const char *legend)
+{
+	return print_ping(data, legend, M5_PKT_PINGREQ);
+}
+
+static void print_pingresp(void *data, const char *legend)
+{
+	return print_ping(data, legend, M5_PKT_PINGRESP);
+}
+
+static void print_disconnect_auth(void *data, const char *legend, int pkt)
+{
+	struct m5_rc *msg = (struct m5_rc *)data;
+
+	printf("%s: %s\n\tReason code: %u",
+		legend,
+		pkt_names[pkt],
+		msg->reason_code);
+}
+
+static void print_disconnect(void *data, const char *legend)
+{
+	print_disconnect_auth(data, legend, M5_PKT_DISCONNECT);
+}
+
+static void print_auth(void *data, const char *legend)
+{
+	print_disconnect_auth(data, legend, M5_PKT_AUTH);
+}
+
+typedef void (*fptr_print)(void *, const char *);
+
+static const fptr_print print_fcns[] = {
+	NULL,
+	print_connect,
+	print_connack,
+	print_publish,
+	print_puback,
+	print_pubrec,
+	print_pubrel,
+	print_pubcomp,
+	print_subscribe,
+	print_suback,
+	print_unsubscribe,
+	print_unsuback,
+	print_pingreq,
+	print_pingresp,
+	print_disconnect,
+	print_auth };
+
+void print_packet(enum m5_pkt_type type, void *data, const char *legend)
+{
+	if (type <= M5_PKT_RESERVED || type >= M5_PKT_RESERVED_UB) {
+		DBG("invalid control packet");
+		return;
+	}
+
+	print_fcns[type](data, legend);
 }
 
