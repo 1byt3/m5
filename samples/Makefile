@@ -40,6 +40,7 @@
 
 SAMPLES =				\
 	$(BINS_DIR)/m5_publisher	\
+	$(BINS_DIR)/m5_publisher_server	\
 	$(BINS_DIR)/m5_subscriber	\
 	$(BINS_DIR)/m5_echo_server
 
