@@ -81,5 +81,9 @@ int unpack_msg_reply(int fd,
 					 void *data),
 		     void *user_data);
 
+int publisher_next_state(int current_state, enum m5_qos qos);
+
+int publish_message(int fd, struct m5_publish *msg, int *loop_forever);
+
 #endif
 

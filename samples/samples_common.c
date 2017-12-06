@@ -577,16 +577,13 @@ lb_parse_another_packet:
 	}
 
 	if (pkt_type == M5_PKT_PUBLISH) {
-		switch (msg_publish.qos) {
-		case M5_QoS0:
-			return 0;
-		case M5_QoS1:
-			pkt_resp[M5_PKT_PUBLISH] = M5_PKT_PUBACK;
-			break;
-		case M5_QoS2:
-			pkt_resp[M5_PKT_PUBLISH] = M5_PKT_PUBREC;
-			break;
+		int state;
+
+		state  = publisher_next_state(M5_PKT_PUBLISH, msg_publish.qos);
+		if (state == -1) {
+			return -1;
 		}
+		pkt_resp[M5_PKT_PUBLISH] = state;
 	}
 
 	if (pkt_resp[pkt_type] == M5_PKT_RESERVED) {
@@ -621,6 +618,110 @@ lb_parse_another_packet:
 	if (buf_bytes_to_read(&in) > 0) {
 		/* more data to parse */
 		goto lb_parse_another_packet;
+	}
+
+	return 0;
+}
+
+int publisher_next_state(int current_state, enum m5_qos qos)
+{
+	int state = (current_state << 4) | qos;
+
+	switch (state) {
+	case ((M5_PKT_PUBLISH << 4) | M5_QoS0):
+		return M5_PKT_RESERVED;
+	case ((M5_PKT_PUBLISH << 4) | M5_QoS1):
+		return M5_PKT_PUBACK;
+	case ((M5_PKT_PUBACK << 4) | M5_QoS1):
+		/* PUBLISH QoS 1 handshake completed */
+		return M5_PKT_RESERVED;
+	case ((M5_PKT_PUBLISH << 4) | M5_QoS2):
+		return M5_PKT_PUBREC;
+	case ((M5_PKT_PUBREC << 4) | M5_QoS2):
+		return M5_PKT_PUBREL;
+	case ((M5_PKT_PUBREL << 4) | M5_QoS2):
+		return M5_PKT_PUBCOMP;
+	case ((M5_PKT_PUBCOMP << 4) | M5_QoS2):
+		/* PUBLISH QoS 2 handshake completed */
+		return M5_PKT_RESERVED;
+	default:
+		return -1;
+	}
+}
+
+struct user_data {
+	uint8_t current_state;
+	enum m5_qos qos;
+	int packet_id;
+};
+
+static int validate_pub_packet(enum m5_pkt_type pkt_type,
+			       void *msg, void *user)
+{
+	struct m5_pub_response *resp = (struct m5_pub_response *)msg;
+	struct user_data *user_data = (struct user_data *)user;
+	uint8_t next;
+
+	if (pkt_type == M5_PKT_PINGREQ) {
+		return 0;
+	}
+
+	/* current_state is the state before pkt_type */
+	next = publisher_next_state(user_data->current_state, user_data->qos);
+	if (next == M5_PKT_RESERVED) {
+		return 0;
+	}
+
+	/* next must match the received packet */
+	if (next != pkt_type) {
+		DBG("unexpected control packet received");
+		return -1;
+	}
+
+	if (resp->packet_id != user_data->packet_id ||
+	    resp->reason_code != 0) {
+		DBG("invalid packet id or reason code in pub response");
+		return -1;
+	}
+
+	/* pkt_type is the previous state, so we compute the next state here */
+	next = publisher_next_state(pkt_type, user_data->qos);
+	user_data->current_state = next;
+
+	return 0;
+}
+
+int publish_message(int fd, struct m5_publish *msg, int *loop_forever)
+{
+	struct user_data user_data;
+	int rc;
+
+	/* keep the type and qos for future PUB messages */
+	user_data.current_state = M5_PKT_PUBLISH;
+	user_data.packet_id = msg->packet_id;
+	user_data.qos = msg->qos;
+
+	rc = pack_msg_write(fd, M5_PKT_PUBLISH, msg);
+	if (rc != 0) {
+		DBG("pack_msg_write");
+		return -1;
+	}
+
+	if (msg->qos == M5_QoS0) {
+		return 0;
+	}
+
+	/* loop until the PUBLISH handshake is fnished */
+	while (*loop_forever) {
+		rc = unpack_msg_reply(fd, validate_pub_packet, &user_data);
+		if (rc != 0) {
+			DBG("unpack_msg_reply");
+			return -1;
+		}
+
+		if (user_data.current_state == M5_PKT_RESERVED) {
+			break;
+		}
 	}
 
 	return 0;
