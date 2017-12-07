@@ -106,7 +106,8 @@ enum m5_pkt_type {
 	M5_PKT_PINGREQ,
 	M5_PKT_PINGRESP,
 	M5_PKT_DISCONNECT,
-	M5_PKT_AUTH
+	M5_PKT_AUTH,
+	M5_PKT_RESERVED_UB,
 };
 
 enum m5_reason_code {
