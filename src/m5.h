@@ -290,6 +290,10 @@ struct m5_suback {
 	uint8_t rc_items;
 };
 
+struct m5_rc {
+	uint8_t reason_code;
+};
+
 size_t buf_bytes_to_read(struct app_buf *buf);
 
 size_t buf_bytes_to_write(struct app_buf *buf);
@@ -437,15 +441,15 @@ int m5_pack_pingresp(struct m5_ctx *ctx, struct app_buf *buf);
 int m5_unpack_pingresp(struct m5_ctx *ctx, struct app_buf *buf);
 
 int m5_pack_disconnect(struct m5_ctx *ctx, struct app_buf *buf,
-		       uint8_t reason_code, struct m5_prop *prop);
+		       struct m5_rc *msg, struct m5_prop *prop);
 
 int m5_unpack_disconnect(struct m5_ctx *ctx, struct app_buf *buf,
-			 uint8_t *reason_code, struct m5_prop *prop);
+			 struct m5_rc *msg, struct m5_prop *prop);
 
 int m5_pack_auth(struct m5_ctx *ctx, struct app_buf *buf,
-		 uint8_t reason_code, struct m5_prop *prop);
+		 struct m5_rc *msg, struct m5_prop *prop);
 
 int m5_unpack_auth(struct m5_ctx *ctx, struct app_buf *buf,
-		   uint8_t *reason_code, struct m5_prop *prop);
+		   struct m5_rc *msg, struct m5_prop *prop);
 
 #endif

@@ -2168,39 +2168,36 @@ int m5_unpack_pingresp(struct m5_ctx *ctx, struct app_buf *buf)
 }
 
 static int m5_pack_disconnect_auth(struct m5_ctx *ctx, struct app_buf *buf,
-				   uint8_t reason_code, struct m5_prop *prop,
+				   struct m5_rc *msg, struct m5_prop *prop,
 				   enum m5_pkt_type type);
 
 int m5_pack_disconnect(struct m5_ctx *ctx, struct app_buf *buf,
-		       uint8_t reason_code, struct m5_prop *prop)
+		       struct m5_rc *msg, struct m5_prop *prop)
 {
-	return m5_pack_disconnect_auth(ctx, buf, reason_code, prop,
-				       M5_PKT_DISCONNECT);
+	return m5_pack_disconnect_auth(ctx, buf, msg, prop, M5_PKT_DISCONNECT);
 }
 
 static int m5_unpack_disconnect_auth(struct m5_ctx *ctx, struct app_buf *buf,
-				     uint8_t *reason_code, struct m5_prop *prop,
+				     struct m5_rc *msg, struct m5_prop *prop,
 				     enum m5_pkt_type type);
 
 int m5_unpack_disconnect(struct m5_ctx *ctx, struct app_buf *buf,
-			 uint8_t *reason_code, struct m5_prop *prop)
+			 struct m5_rc *msg, struct m5_prop *prop)
 {
-	return m5_unpack_disconnect_auth(ctx, buf, reason_code, prop,
+	return m5_unpack_disconnect_auth(ctx, buf, msg, prop,
 					 M5_PKT_DISCONNECT);
 }
 
-int m5_pack_auth(struct m5_ctx *ctx, struct app_buf *buf, uint8_t reason_code,
+int m5_pack_auth(struct m5_ctx *ctx, struct app_buf *buf, struct m5_rc *msg,
 		 struct m5_prop *prop)
 {
-	return m5_pack_disconnect_auth(ctx, buf, reason_code,
-				       prop, M5_PKT_AUTH);
+	return m5_pack_disconnect_auth(ctx, buf, msg, prop, M5_PKT_AUTH);
 }
 
 int m5_unpack_auth(struct m5_ctx *ctx, struct app_buf *buf,
-		   uint8_t *reason_code, struct m5_prop *prop)
+		   struct m5_rc *msg, struct m5_prop *prop)
 {
-	return m5_unpack_disconnect_auth(ctx, buf, reason_code,
-					 prop, M5_PKT_AUTH);
+	return m5_unpack_disconnect_auth(ctx, buf, msg, prop, M5_PKT_AUTH);
 }
 
 struct pack_info {
@@ -2662,11 +2659,11 @@ static int pack_disconnect_auth_var_hdr(struct app_buf *buf,
 					void *data,
 					struct m5_prop *prop)
 {
-	uint8_t reason_code = *(uint8_t *)data;
+	struct m5_rc *msg = (struct m5_rc *)data;
 	int rc;
 
 	if (pack_info->remlen > 0) {
-		m5_add_u8(buf, reason_code);
+		m5_add_u8(buf, msg->reason_code);
 
 		if (pack_info->remlen > 1) {
 			rc = m5_pack_prop(buf, prop, pack_info->prop_wsize);
@@ -2681,7 +2678,7 @@ static int pack_disconnect_auth_var_hdr(struct app_buf *buf,
 
 static int m5_pack_disconnect_auth(struct m5_ctx *ctx,
 				   struct app_buf *buf,
-				   uint8_t reason_code,
+				   struct m5_rc *msg,
 				   struct m5_prop *prop,
 				   enum m5_pkt_type type)
 {
@@ -2695,12 +2692,12 @@ static int m5_pack_disconnect_auth(struct m5_ctx *ctx,
 		.payload = NULL,
 	};
 
-	if (prop == NULL && reason_code == 0) {
+	if (prop == NULL && msg->reason_code == 0) {
 		pack_info.has_properties = 0;
 		pack_info.var_hdr_size = 0;
 	}
 
-	return pack(ctx, buf, &pack_info, &reason_code, prop);
+	return pack(ctx, buf, &pack_info, msg, prop);
 }
 
 static int unpack(struct m5_ctx *ctx,
@@ -3200,15 +3197,15 @@ static int unpack_disconnect_auth_var_hdr(struct app_buf *buf,
 					  struct pack_info *pack_info,
 					  void *data, struct m5_prop *prop)
 {
-	uint8_t *reason_code = (uint8_t *)data;
+	struct m5_rc *msg = (struct m5_rc *)data;
 	int rc;
 
 	if (pack_info->remlen == 0) {
-		*reason_code = 0x00;
+		msg->reason_code = 0x00;
 		goto lb_exit_ok;
 	}
 
-	rc = m5_unpack_u8(buf, reason_code);
+	rc = m5_unpack_u8(buf, &msg->reason_code);
 	if (rc != M5_SUCCESS) {
 		rc = M5_INVALID_VARIABLE_HEADER;
 		goto lb_exit;
@@ -3230,7 +3227,7 @@ lb_exit:
 }
 
 static int m5_unpack_disconnect_auth(struct m5_ctx *ctx, struct app_buf *buf,
-				     uint8_t *reason_code, struct m5_prop *prop,
+				     struct m5_rc *msg, struct m5_prop *prop,
 				     enum m5_pkt_type type)
 {
 	struct pack_info pack_info = {
@@ -3241,5 +3238,5 @@ static int m5_unpack_disconnect_auth(struct m5_ctx *ctx, struct app_buf *buf,
 		.pkt_type = type,
 		.fixed_hdr_reserved = 0x00 };
 
-	return unpack(ctx, buf, &pack_info, reason_code, prop);
+	return unpack(ctx, buf, &pack_info, msg, prop);
 }

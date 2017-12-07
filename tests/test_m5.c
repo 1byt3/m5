@@ -1154,7 +1154,7 @@ static void test_m5_disconnect(void)
 	struct m5_prop prop2 = { ._user_prop = key_val2, ._user_prop_size = 2 };
 	struct m5_key_val key_val[2];
 	struct m5_prop prop = { ._user_prop = key_val, ._user_prop_size = 2 };
-	uint8_t reason_code;
+	struct m5_rc msg = { .reason_code = M5_RC_PROTOCOL_ERROR };
 	int rc;
 
 	TEST_HDR(__func__);
@@ -1165,14 +1165,14 @@ static void test_m5_disconnect(void)
 	m5_prop_server_reference(&prop, (uint8_t *)"reference", 9);
 
 	m5_prop_session_expiry_interval(&prop, 0x1234);
-	rc = m5_pack_disconnect(&ctx, &buf, M5_RC_PROTOCOL_ERROR, &prop);
+	rc = m5_pack_disconnect(&ctx, &buf, &msg, &prop);
 	if (rc != M5_SUCCESS) {
 		DBG("m5_pack_disconnect");
 		exit(1);
 	}
 
 	buf.offset = 0;
-	rc = m5_unpack_disconnect(&ctx, &buf, &reason_code, &prop2);
+	rc = m5_unpack_disconnect(&ctx, &buf, &msg, &prop2);
 	if (rc != M5_SUCCESS) {
 		DBG("m5_unpack_disconnect");
 		exit(1);
@@ -1191,10 +1191,10 @@ static void test_m5_disconnect(void)
 }
 
 typedef int (*ptr_pack)(struct m5_ctx *, struct app_buf *,
-		      uint8_t, struct m5_prop *);
+			struct m5_rc *, struct m5_prop *);
 
 typedef int (*ptr_unpack)(struct m5_ctx *, struct app_buf *,
-			  uint8_t *, struct m5_prop *);
+			  struct m5_rc *, struct m5_prop *);
 
 static void test_m5_disconnect_auth_short(ptr_pack pack,
 					  ptr_unpack unpack,
@@ -1202,23 +1202,23 @@ static void test_m5_disconnect_auth_short(ptr_pack pack,
 {
 	struct app_buf buf = { .data = data, .len = 0, .offset = 0,
 			       .size = sizeof(data) };
-	uint8_t reason_code = 0x00;
+	struct m5_rc msg = { .reason_code = 0x00 };
 	int rc;
 
-	rc = pack(&ctx, &buf, reason_code, NULL);
+	rc = pack(&ctx, &buf, &msg, NULL);
 	if (rc != M5_SUCCESS) {
 		DBG("pack");
 		exit(1);
 	}
 
 	buf.offset = 0;
-	rc = unpack(&ctx, &buf, &reason_code, NULL);
+	rc = unpack(&ctx, &buf, &msg, NULL);
 	if (rc != M5_SUCCESS) {
 		DBG("unpack");
 		exit(1);
 	}
 
-	if (reason_code != 0) {
+	if (msg.reason_code != 0) {
 		DBG("pack/unpack");
 		exit(1);
 	}
@@ -1255,7 +1255,7 @@ static void test_m5_auth(void)
 	struct m5_prop prop2 = { ._user_prop = key_val2, ._user_prop_size = 2 };
 	struct m5_key_val key_val[2];
 	struct m5_prop prop = { ._user_prop = key_val, ._user_prop_size = 2 };
-	uint8_t ret_code;
+	struct m5_rc msg = { .reason_code = M5_RC_CONTINUE_AUTHENTICATION };
 	int rc;
 
 	TEST_HDR(__func__);
@@ -1264,14 +1264,14 @@ static void test_m5_auth(void)
 	m5_prop_auth_data(&prop, (uint8_t *)"method_payload", 14);
 	add_user_properties(&prop);
 
-	rc = m5_pack_auth(&ctx, &buf, M5_RC_CONTINUE_AUTHENTICATION, &prop);
+	rc = m5_pack_auth(&ctx, &buf, &msg, &prop);
 	if (rc != M5_SUCCESS) {
 		DBG("m5_pack_auth");
 		exit(1);
 	}
 
 	buf.offset = 0;
-	rc = m5_unpack_auth(&ctx, &buf, &ret_code, &prop2);
+	rc = m5_unpack_auth(&ctx, &buf, &msg, &prop2);
 	if (rc != M5_SUCCESS) {
 		DBG("m5_unpack_auth");
 		exit(1);
