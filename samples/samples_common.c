@@ -337,220 +337,285 @@ lb_error:
 	return -1;
 }
 
-int read_reply_msg(int fd,
-		   int validate_packet(enum m5_pkt_type, void *msg, void *),
-		   void *user_data)
-{
-	struct m5_topic topics[MAX_ARRAY_ELEMENTS];
-	uint8_t rcodes[MAX_ARRAY_ELEMENTS];
-	uint8_t out_data[MAX_BUF_SIZE];
-	uint8_t in_data[MAX_BUF_SIZE];
-	struct app_buf out = { .data = out_data, .size = sizeof(out_data) };
-	struct app_buf in = { .data = in_data, .size = sizeof(in_data) };
+#define PACK_UNPACK(pre, packet, m5_type, ...)				\
+static int pre ## _ ## packet(struct m5_ctx *ctx, struct app_buf *buf,	\
+			      void *_msg, struct m5_prop *prop)		\
+{									\
+	m5_type *msg;							\
+									\
+	(void)prop;							\
+	(void)_msg;							\
+	(void)msg;							\
+	msg = (m5_type *)_msg;						\
+	return m5_ ## pre ## _ ## packet(ctx, buf, ## __VA_ARGS__);	\
+}
 
+PACK_UNPACK(pack, connect, struct m5_connect, msg, prop)
+PACK_UNPACK(pack, connack, struct m5_connack, msg, prop)
+PACK_UNPACK(pack, publish, struct m5_publish, msg, prop)
+PACK_UNPACK(pack, puback, struct m5_pub_response, msg, prop)
+PACK_UNPACK(pack, pubrec, struct m5_pub_response, msg, prop)
+PACK_UNPACK(pack, pubrel, struct m5_pub_response, msg, prop)
+PACK_UNPACK(pack, pubcomp, struct m5_pub_response, msg, prop)
+PACK_UNPACK(pack, subscribe, struct m5_subscribe, msg, prop)
+PACK_UNPACK(pack, suback, struct m5_suback, msg, prop)
+PACK_UNPACK(pack, unsubscribe, struct m5_subscribe, msg)
+PACK_UNPACK(pack, unsuback, struct m5_suback, msg, prop)
+PACK_UNPACK(pack, pingreq, void)
+PACK_UNPACK(pack, pingresp, void)
+PACK_UNPACK(pack, disconnect, struct m5_rc, msg, prop)
+PACK_UNPACK(pack, auth, struct m5_rc, msg, prop)
+
+PACK_UNPACK(unpack, connect, struct m5_connect, msg, prop)
+PACK_UNPACK(unpack, connack, struct m5_connack, msg, prop)
+PACK_UNPACK(unpack, publish, struct m5_publish, msg, prop)
+PACK_UNPACK(unpack, puback, struct m5_pub_response, msg, prop)
+PACK_UNPACK(unpack, pubrec, struct m5_pub_response, msg, prop)
+PACK_UNPACK(unpack, pubrel, struct m5_pub_response, msg, prop)
+PACK_UNPACK(unpack, pubcomp, struct m5_pub_response, msg, prop)
+PACK_UNPACK(unpack, subscribe, struct m5_subscribe, msg, prop)
+PACK_UNPACK(unpack, suback, struct m5_suback, msg, prop)
+PACK_UNPACK(unpack, unsubscribe, struct m5_subscribe, msg)
+PACK_UNPACK(unpack, unsuback, struct m5_suback, msg, prop)
+PACK_UNPACK(unpack, pingreq, void)
+PACK_UNPACK(unpack, pingresp, void)
+PACK_UNPACK(unpack, disconnect, struct m5_rc, msg, prop)
+PACK_UNPACK(unpack, auth, struct m5_rc, msg, prop)
+
+typedef int (*fptr_pack_unpack)(struct m5_ctx *, struct app_buf *,
+				void *, struct m5_prop *);
+
+static fptr_pack_unpack fptr_pack[] = {
+	NULL,
+	pack_connect,
+	pack_connack,
+	pack_publish,
+	pack_puback,
+	pack_pubrec,
+	pack_pubrel,
+	pack_pubcomp,
+	pack_subscribe,
+	pack_suback,
+	pack_unsubscribe,
+	pack_unsuback,
+	pack_pingreq,
+	pack_pingresp,
+	pack_disconnect,
+	pack_auth };
+
+static fptr_pack_unpack fptr_unpack[] = {
+	NULL,
+	unpack_connect,
+	unpack_connack,
+	unpack_publish,
+	unpack_puback,
+	unpack_pubrec,
+	unpack_pubrel,
+	unpack_pubcomp,
+	unpack_subscribe,
+	unpack_suback,
+	unpack_unsubscribe,
+	unpack_unsuback,
+	unpack_pingreq,
+	unpack_pingresp,
+	unpack_disconnect,
+	unpack_auth };
+
+static int prep_resp_publish(void *dst, void *src)
+{
+	struct m5_pub_response *pub_response = (struct m5_pub_response *)dst;
+	struct m5_publish *publish = (struct m5_publish *)src;
+
+	if (publish->qos == M5_QoS0 ||
+	    (publish->qos != M5_QoS1 && publish->qos != M5_QoS2)) {
+		return -1;
+	}
+
+	pub_response->packet_id = publish->packet_id;
+	pub_response->reason_code = M5_RC_SUCCESS;
+
+	return 0;
+}
+
+static int prep_resp_subscribe(void *dst, void *src)
+{
+	struct m5_subscribe *subscribe = (struct m5_subscribe *)src;
+	struct m5_suback *suback = (struct m5_suback *)dst;
+	uint8_t i;
+
+	if (subscribe->items > suback->rc_size) {
+		return -1;
+	}
+
+	for (i = 0; i < subscribe->items; i++) {
+		uint8_t qos = subscribe->topics[i].options & 0x03;
+
+		suback->rc[i] = qos;
+	}
+
+	suback->packet_id = subscribe->packet_id;
+	suback->rc_items = subscribe->items;
+
+	return 0;
+}
+
+typedef int (*fptr_prep_resp)(void *, void *);
+
+static fptr_prep_resp prep_resp[] = {
+	NULL,
+	NULL,			/* CONNECT, use default values */
+	NULL,			/* CONNACK, no response */
+	prep_resp_publish,	/* PUBLISH */
+	NULL,			/* PUBACK, no response */
+	NULL,			/* PUBREC, will use the same msg */
+	NULL,			/* PUBREL, will use the same msg */
+	NULL,			/* PUBCOMP, no response */
+	prep_resp_subscribe,	/* SUBSCRIBE */
+	NULL,			/* SUBACK, no response */
+	prep_resp_subscribe,	/* UNSUBSCRIBE */
+	NULL,			/* UNSUBACK, no response */
+	NULL,			/* PINGREQ, no extra processing required */
+	NULL,			/* PINGRESP, no extra processing required */
+	NULL,			/* DISCONNECT, no response */
+	NULL };			/* AUTH, send the same message back */
+
+static int pkt_resp[] = {
+	M5_PKT_RESERVED,
+	M5_PKT_CONNACK,		/* CONNECT */
+	M5_PKT_RESERVED,	/* CONNACK */
+	M5_PKT_RESERVED,	/* PUBLISH, depends on QoS value */
+	M5_PKT_RESERVED,	/* PUBACK */
+	M5_PKT_PUBREL,		/* PUBREC */
+	M5_PKT_PUBCOMP,		/* PUBREL */
+	M5_PKT_RESERVED,	/* PUBCOMP */
+	M5_PKT_SUBACK,		/* SUBSCRIBE */
+	M5_PKT_RESERVED,	/* SUBACK */
+	M5_PKT_UNSUBACK,	/* UNSUBSCRIBE */
+	M5_PKT_RESERVED,	/* UNSUBACK */
+	M5_PKT_PINGRESP,	/* PINGREQ */
+	M5_PKT_RESERVED,	/* PINGRESP */
+	M5_PKT_AUTH,		/* AUTH */
+	M5_PKT_RESERVED };	/* DISCONNECT */
+
+int unpack_msg_reply(int fd,
+		     int validate_packet(enum m5_pkt_type pkt_type,
+					 void *msg,
+					 void *data),
+		     void *user_data)
+{
 	struct m5_pub_response msg_pub_response = { 0 };
-	struct m5_subscribe msg_subscribe = { .topics = topics,
-					      .size = MAX_ARRAY_ELEMENTS };
+	struct m5_subscribe msg_subscribe = { 0 };
 	struct m5_connect msg_connect = { 0 };
 	struct m5_connack msg_connack = { 0 };
 	struct m5_publish msg_publish = { 0 };
 	struct m5_suback msg_suback = { 0 };
-	struct m5_prop prop = { 0 };
-
-	void *received_msg = NULL;
 	struct m5_rc msg_rc = { 0 };
+	struct m5_prop prop = { 0 };
+	void *msgs[] = {
+		NULL,
+		&msg_connect,
+		&msg_connack,
+		&msg_publish,
+		&msg_pub_response,
+		&msg_pub_response,
+		&msg_pub_response,
+		&msg_pub_response,
+		&msg_subscribe,
+		&msg_suback,
+		&msg_subscribe,
+		&msg_suback,
+		NULL,
+		NULL,
+		&msg_rc,
+		&msg_rc };
+	struct m5_topic topics[MAX_ARRAY_ELEMENTS];
+	uint8_t rcodes[MAX_ARRAY_ELEMENTS];
+	uint8_t out_data[MAX_BUF_SIZE];
+	uint8_t in_data[MAX_BUF_SIZE];
+	struct app_buf out;
+	struct app_buf in;
 	uint8_t pkt_type;
 	int rc;
-	int i;
+
+	in.data = in_data;
+	in.size = sizeof(in_data);
+	out.data = out_data;
+	out.size = sizeof(out_data);
+	msg_subscribe.topics = topics;
+	msg_subscribe.size = MAX_ARRAY_ELEMENTS;
+	msg_suback.rc = rcodes;
+	msg_suback.rc_size = MAX_ARRAY_ELEMENTS;
 
 	rc = tcp_read(fd, &in);
 	if (rc != 0) {
 		DBG("tcp_read");
-		goto lb_exit;
+		return -1;
 	}
 
 lb_parse_another_packet:
 	pkt_type = (*buf_current(&in) >> 4);
 
-	switch (pkt_type) {
-	default:
-	case M5_PKT_RESERVED:
+	if (pkt_type <= M5_PKT_RESERVED || pkt_type >= M5_PKT_RESERVED_UB) {
 		DBG("invalid control packet");
-		rc = -1;
-		goto lb_exit;
-	case M5_PKT_CONNECT:
-		received_msg = &msg_connect;
-		rc = m5_unpack_connect(NULL, &in, &msg_connect, &prop);
-		break;
-	case M5_PKT_CONNACK:
-		received_msg = &msg_connack;
-		rc = m5_unpack_connack(NULL, &in, &msg_connack, &prop);
-		break;
-	case M5_PKT_PUBLISH:
-		received_msg = &msg_publish;
-		rc = m5_unpack_publish(NULL, &in, &msg_publish, &prop);
-		break;
-	case M5_PKT_PUBACK:
-		received_msg = &msg_pub_response;
-		rc = m5_unpack_puback(NULL, &in, &msg_pub_response, &prop);
-		break;
-	case M5_PKT_PUBREC:
-		received_msg = &msg_pub_response;
-		rc = m5_unpack_pubrec(NULL, &in, &msg_pub_response, &prop);
-		break;
-	case M5_PKT_PUBREL:
-		received_msg = &msg_pub_response;
-		rc = m5_unpack_pubrel(NULL, &in, &msg_pub_response, &prop);
-		break;
-	case M5_PKT_PUBCOMP:
-		received_msg = &msg_pub_response;
-		rc = m5_unpack_pubcomp(NULL, &in, &msg_pub_response, &prop);
-		break;
-	case M5_PKT_SUBSCRIBE:
-		received_msg = &msg_subscribe;
-		rc = m5_unpack_subscribe(NULL, &in, &msg_subscribe, &prop);
-		break;
-	case M5_PKT_SUBACK:
-		received_msg = &msg_suback;
-		rc = m5_unpack_suback(NULL, &in, &msg_suback, &prop);
-		break;
-	case M5_PKT_UNSUBSCRIBE:
-		received_msg = &msg_subscribe;
-		rc = m5_unpack_unsubscribe(NULL, &in, &msg_subscribe);
-		break;
-	case M5_PKT_UNSUBACK:
-		received_msg = &msg_suback;
-		rc = m5_unpack_unsuback(NULL, &in, &msg_suback, &prop);
-		break;
-	case M5_PKT_PINGREQ:
-		rc = m5_unpack_pingreq(NULL, &in);
-		break;
-	case M5_PKT_PINGRESP:
-		rc = m5_unpack_pingresp(NULL, &in);
-		break;
-	case M5_PKT_DISCONNECT:
-		received_msg = &msg_rc;
-		rc = m5_unpack_disconnect(NULL, &in, &msg_rc, &prop);
-		break;
-	case M5_PKT_AUTH:
-		received_msg = &msg_rc;
-		rc = m5_unpack_auth(NULL, &in, &msg_rc, &prop);
-		break;
+		return -1;
 	}
 
 	printf("Received: %s\n", pkt_names[pkt_type]);
 
+	rc = fptr_unpack[pkt_type](NULL, &in, msgs[pkt_type], &prop);
 	if (rc != 0) {
-		printf("Msg: %d\n", pkt_type);
 		DBG("unpack");
-		goto lb_exit;
+		return -1;
 	}
 
 	if (validate_packet != NULL) {
-		rc = validate_packet(pkt_type, received_msg, user_data);
+		rc = validate_packet(pkt_type, msgs[pkt_type], user_data);
 		if (rc != 0) {
 			DBG("validate_packet");
-			goto lb_exit;
+			return -1;
+		}
+	}
+
+	if (pkt_type == M5_PKT_PUBLISH) {
+		switch (msg_publish.qos) {
+		case M5_QoS0:
+			return 0;
+		case M5_QoS1:
+			pkt_resp[M5_PKT_PUBLISH] = M5_PKT_PUBACK;
+			break;
+		case M5_QoS2:
+			pkt_resp[M5_PKT_PUBLISH] = M5_PKT_PUBREC;
+			break;
+		}
+	}
+
+	if (pkt_resp[pkt_type] == M5_PKT_RESERVED) {
+		return 0;
+	}
+
+	printf("Sending: %s\n", pkt_names[pkt_resp[pkt_type]]);
+
+	if (prep_resp[pkt_type] != NULL) {
+		rc = prep_resp[pkt_type](msgs[pkt_resp[pkt_type]],
+					 msgs[pkt_type]);
+		if (rc != 0) {
+			DBG("prep_resp");
+			return -1;
 		}
 	}
 
 	buf_reset(&out);
-
-	switch (pkt_type) {
-	default:
-	case M5_PKT_RESERVED:
-	case M5_PKT_CONNACK:
-	case M5_PKT_PUBACK:
-	case M5_PKT_PUBCOMP:
-	case M5_PKT_SUBACK:
-	case M5_PKT_UNSUBACK:
-	case M5_PKT_PINGRESP:
-	case M5_PKT_DISCONNECT:
-		break;
-	case M5_PKT_CONNECT:
-		msg_connack.session_present = 0;
-		msg_connack.return_code = 0;
-		printf("Sending: %s\n", pkt_names[M5_PKT_CONNACK]);
-		rc = m5_pack_connack(NULL, &out, &msg_connack, NULL);
-		break;
-	case M5_PKT_PUBLISH:
-		msg_pub_response.packet_id = msg_publish.packet_id;
-		msg_pub_response.reason_code = M5_RC_SUCCESS;
-		switch ((enum m5_qos)msg_publish.qos) {
-		case M5_QoS0:
-			break;
-		case M5_QoS1:
-			printf("Sending: %s\n", pkt_names[M5_PKT_PUBACK]);
-			rc = m5_pack_puback(NULL, &out,
-					    &msg_pub_response, NULL);
-			break;
-		case M5_QoS2:
-			printf("Sending: %s\n", pkt_names[M5_PKT_PUBREC]);
-			rc = m5_pack_pubrec(NULL, &out,
-					    &msg_pub_response, NULL);
-			break;
-		}
-		break;
-	case M5_PKT_PUBREC:
-		printf("Sending: %s\n", pkt_names[M5_PKT_PUBREL]);
-		rc = m5_pack_pubrel(NULL, &out,
-				    &msg_pub_response, NULL);
-		break;
-	case M5_PKT_PUBREL:
-		printf("Sending: %s\n", pkt_names[M5_PKT_PUBCOMP]);
-		rc = m5_pack_pubcomp(NULL, &out,
-				     &msg_pub_response, NULL);
-		break;
-	case M5_PKT_SUBSCRIBE:
-	case M5_PKT_UNSUBSCRIBE:
-		if (msg_subscribe.items > sizeof(rcodes)) {
-			DBG("subscribe items > msg_suback.rc_size");
-			rc = -1;
-			goto lb_exit;
-		}
-		for (i = 0; i < msg_subscribe.items; i++) {
-			uint8_t qos = msg_subscribe.topics[i].options & 0x03;
-
-			rcodes[i] = qos;
-		}
-
-		msg_suback.packet_id = msg_subscribe.packet_id;
-		msg_suback.rc_size = msg_subscribe.items;
-		msg_suback.rc_items = msg_subscribe.items;
-		msg_suback.rc = rcodes;
-		if (pkt_type == M5_PKT_SUBSCRIBE) {
-			printf("Sending: %s\n", pkt_names[M5_PKT_SUBACK]);
-			rc = m5_pack_suback(NULL, &out, &msg_suback, NULL);
-
-			printf("RC: %d\n", rc);
-
-
-		} else {
-			printf("Sending: %s\n", pkt_names[M5_PKT_UNSUBACK]);
-			rc = m5_pack_unsuback(NULL, &out, &msg_suback, NULL);
-		}
-		break;
-	case M5_PKT_PINGREQ:
-		printf("Sending: %s\n", pkt_names[M5_PKT_PINGRESP]);
-		rc = m5_pack_pingresp(NULL, &out);
-		break;
-	case M5_PKT_AUTH:
-		printf("Sending: %s\n", pkt_names[M5_PKT_AUTH]);
-		rc = m5_pack_auth(NULL, &out, 0x00, NULL);
-		break;
-	}
-
+	rc = fptr_pack[pkt_resp[pkt_type]](NULL, &out,
+					   msgs[pkt_resp[pkt_type]], NULL);
 	if (rc != 0) {
 		DBG("pack response");
-		goto lb_exit;
+		return -1;
 	}
 
-	if (out.len > 0) {
-		rc = tcp_write(fd, &out);
-		if (rc != 0) {
-			DBG("tcp_write");
-			goto lb_exit;
-		}
+	rc = tcp_write(fd, &out);
+	if (rc != 0) {
+		DBG("tcp_write");
+		return -1;
 	}
 
 	if (buf_bytes_to_read(&in) > 0) {
@@ -558,9 +623,6 @@ lb_parse_another_packet:
 		goto lb_parse_another_packet;
 	}
 
-	rc = 0;
-
-lb_exit:
-	return rc;
+	return 0;
 }
 

@@ -83,7 +83,7 @@ static int echo_server(void)
 		}
 
 		do {
-			rc = read_reply_msg(client_fd, NULL, NULL);
+			rc = unpack_msg_reply(client_fd, NULL, NULL);
 		} while (rc == 0 && loop_forever != 0);
 
 		tcp_disconnect(client_fd);

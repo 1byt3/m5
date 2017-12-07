@@ -75,9 +75,11 @@ int client_connect(int *socket_fd, const char *client_id,
 
 int pack_msg_write(int socket_fd, enum m5_pkt_type type, void *msg);
 
-int read_reply_msg(int fd,
-		   int validate_packet(enum m5_pkt_type, void *msg, void *user),
-		   void *user_data);
+int unpack_msg_reply(int fd,
+		     int validate_packet(enum m5_pkt_type pkt_type,
+					 void *msg,
+					 void *data),
+		     void *user_data);
 
 #endif
 
