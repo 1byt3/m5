@@ -291,64 +291,6 @@ lb_error:
 	return -1;
 }
 
-int pack_msg_write(int socket_fd, enum m5_pkt_type type, void *msg)
-{
-	static uint8_t data[MAX_BUF_SIZE];
-	struct app_buf buf = { .data = data, .size = sizeof(data) };
-	int rc;
-
-	switch (type) {
-	default:
-		DBG("unexpected packet type");
-		goto lb_error;
-	case M5_PKT_PUBLISH:
-		rc = m5_pack_publish(NULL, &buf,
-				     (struct m5_publish *)msg, NULL);
-		break;
-	case M5_PKT_PUBREL:
-		rc = m5_pack_pubrel(NULL, &buf,
-				    (struct m5_pub_response *)msg, NULL);
-		break;
-	case M5_PKT_PINGRESP:
-		rc = m5_pack_pingresp(NULL, &buf);
-		break;
-	case M5_PKT_CONNECT:
-		rc = m5_pack_connect(NULL, &buf,
-				     (struct m5_connect *)msg, NULL);
-		break;
-	case M5_PKT_CONNACK:
-		rc = m5_pack_connack(NULL, &buf,
-				     (struct m5_connack *)msg, NULL);
-		break;
-	case M5_PKT_SUBSCRIBE:
-		rc = m5_pack_subscribe(NULL, &buf,
-				       (struct m5_subscribe *)msg, NULL);
-		break;
-	case M5_PKT_SUBACK:
-		rc = m5_pack_suback(NULL, &buf,
-				    (struct m5_suback *)msg, NULL);
-		break;
-	}
-
-	print_packet(type, msg, "Sending");
-
-	if (rc != M5_SUCCESS) {
-		DBG("pack");
-		goto lb_error;
-	}
-
-	rc = tcp_write(socket_fd, &buf);
-	if (rc != 0) {
-		DBG("tcp_write");
-		goto lb_error;
-	}
-
-	return 0;
-
-lb_error:
-	return -1;
-}
-
 #define PACK_UNPACK(pre, packet, m5_type, ...)				\
 static int pre ## _ ## packet(struct m5_ctx *ctx, struct app_buf *buf,	\
 			      void *_msg, struct m5_prop *prop)		\
@@ -931,5 +873,33 @@ void print_packet(enum m5_pkt_type type, void *data, const char *legend)
 	}
 
 	print_fcns[type](data, legend);
+}
+
+int pack_msg_write(int socket_fd, enum m5_pkt_type type, void *msg)
+{
+	static uint8_t data[MAX_BUF_SIZE];
+	struct app_buf buf = { .data = data, .size = sizeof(data) };
+	int rc;
+
+	if (type <= M5_PKT_RESERVED || type >= M5_PKT_RESERVED_UB) {
+		DBG("invalid control packet");
+		return -1;
+	}
+
+	rc = fptr_pack[type](NULL, &buf, msg, NULL);
+	if (rc != M5_SUCCESS) {
+		DBG("pack");
+		return -1;
+	}
+
+	print_packet(type, msg, "Sending");
+
+	rc = tcp_write(socket_fd, &buf);
+	if (rc != 0) {
+		DBG("tcp_write");
+		return -1;
+	}
+
+	return 0;
 }
 
