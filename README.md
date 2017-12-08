@@ -15,11 +15,65 @@ is required and/or network bandwidth is at a premium.*
 
 ### Description
 
-### Design
+This project provides routines for reading and writing MQTT v5.0
+Control Packets.
+
+### Audience
+
+Embedded software engineers that require an MQTT v5.0 implementation
+for projects with memory constraints and/or real-time requirements.
+
+### Requirements
+
+For your own projects:
+
+- Any C compiler with support for struct initializers (C99)
+
+To build all the samples and tests:
+
+- GNU/Linux, OpenBSD or FreeBSD operating systems
+- Tested on x86 32 and 64 bits
+- GCC or CLANG and GNU Make (gmake)
+
+To run the memtest target:
+
+- valgrind (only seems to work fine on GNU/Linux)
+
+### Download
+
+Open a terminal and type:
+
+```
+git clone https://github.com/1byt3/m5.git
+cd m5
+git checkout dev
+```
+
+### Build and Run
+
+On GNU/Linux:
+
+```
+make && make tests && make memtest
+```
+
+On OpenBSD/FreeBSD:
+
+```
+gmake && gmake tests
+```
+
+See the [samples](samples/) directory for more information
+about running the sample applications.
 
 ### API usage
 
-### Build and Run
+See the [samples](samples/) directory, specifically the
+[samples_common.c](samples/samples_common.c) file.
+
+### Support
+
+This project is sponsored and supported by [1byt3](http://1byt3.com).
 
 ### FAQ
 
@@ -28,7 +82,7 @@ is required and/or network bandwidth is at a premium.*
 If you don't receive a commercial license from us (1byt3), you MUST assume that
 this software is distributed under the GNU Affero General Public License,
 either version 3 of the License, or (at your option) any later version.
-See the LICENSE.txt file for more information.
+See the [LICENSE.txt](LICENSE.txt) file for more information.
 
 Commercial licenses are available, send us an email: customers at 1byt3.com
 
@@ -44,3 +98,5 @@ of the MQTT protocol.
 ### References
 
 OASIS MQTT Version 5 [specification](http://docs.oasis-open.org/mqtt/mqtt/v5.0/)
+
+
