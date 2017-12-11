@@ -1,5 +1,7 @@
 # [1byt3](http://1byt3.com)
 
+[![Build Status](https://travis-ci.org/1byt3/m5.svg?branch=dev)](https://travis-ci.org/1byt3/m5)
+
 ## m5: the MQTT 5 Low Level Packet Library
 
 ### What is MQTT?
