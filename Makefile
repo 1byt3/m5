@@ -42,11 +42,14 @@ VALGRIND = valgrind -q --leak-check=full --error-exitcode=1
 
 SAMPLES_CFLAGS += -DM5_SKIP_ON_FULL_USER_PROP=1
 CFLAGS +=				\
-	-Wall -Wextra -Werror		\
+	-Wall				\
+	-Wextra				\
+	-Werror				\
 	-Wno-missing-field-initializers	\
 	-Wno-missing-braces		\
 	-Wmissing-prototypes		\
-	-O0 -g
+	-O0				\
+	-g
 
 PROJECT_DIR = $(CURDIR)
 M5_SRC = $(PROJECT_DIR)/src
