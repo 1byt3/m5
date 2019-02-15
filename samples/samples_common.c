@@ -665,7 +665,7 @@ int publish_message(int fd, struct m5_publish *msg, int *loop_forever)
 		return 0;
 	}
 
-	/* loop until the PUBLISH handshake is fnished */
+	/* loop until the PUBLISH handshake is finished */
 	while (*loop_forever) {
 		rc = unpack_msg_reply(fd, validate_pub_packet, &user_data);
 		if (rc != 0) {
