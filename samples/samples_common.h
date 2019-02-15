@@ -49,11 +49,10 @@
 #include <netinet/in.h>
 #include <stdio.h>
 
-#define MAX_BUF_SIZE		128
-#define MAX_ARRAY_ELEMENTS	16
+#define MAX_BUF_SIZE        128
+#define MAX_ARRAY_ELEMENTS  16
 
-#define DBG(msg)	\
-		fprintf(stderr, "[%s:%d] %s\n", __func__, __LINE__, msg)
+#define DBG(msg) fprintf(stderr, "[%s:%d] %s\n", __func__, __LINE__, msg)
 
 void set_tcp_timeout(int timeout);
 
@@ -62,7 +61,7 @@ int tcp_read(int fd, struct app_buf *buf);
 int tcp_write(int fd, struct app_buf *buf);
 
 int tcp_listen(uint8_t server_addr[4], uint16_t port, int backlog,
-	       int *server_fd);
+               int *server_fd);
 
 int tcp_accept(int server_fd, struct sockaddr_in *client_sa, int *client_fd);
 
@@ -71,15 +70,15 @@ int tcp_connect(int *socket_fd, uint8_t peer[4], uint16_t peer_port);
 void tcp_disconnect(int socket_fd);
 
 int client_connect(int *socket_fd, const char *client_id,
-		   uint8_t peer_addr[4], uint16_t peer_port);
+                   uint8_t peer_addr[4], uint16_t peer_port);
 
 int pack_msg_write(int socket_fd, enum m5_pkt_type type, void *msg);
 
 int unpack_msg_reply(int fd,
-		     int validate_packet(enum m5_pkt_type pkt_type,
-					 void *msg,
-					 void *data),
-		     void *user_data);
+                     int validate_packet(enum m5_pkt_type pkt_type,
+                                         void *msg,
+                                         void *data),
+                     void *user_data);
 
 int publisher_next_state(int current_state, enum m5_qos qos);
 

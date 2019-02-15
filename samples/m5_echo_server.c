@@ -53,66 +53,66 @@
 #include <stdlib.h>
 #include <signal.h>
 
-#define SERVER_ADDR	{ 127, 0, 0, 1 }
-#define SERVER_PORT	1863
+#define SERVER_ADDR         { 127, 0, 0, 1 }
+#define SERVER_PORT         1863
 
-#define LISTEN_BACKLOG	1
+#define LISTEN_BACKLOG      1
 
 static int loop_forever = 1;
 
 static int echo_server(void)
 {
-	uint8_t server_addr[] = SERVER_ADDR;
-	int server_fd;
-	int rc;
+        uint8_t server_addr[] = SERVER_ADDR;
+        int server_fd;
+        int rc;
 
-	rc = tcp_listen(server_addr, SERVER_PORT, LISTEN_BACKLOG, &server_fd);
-	if (rc != 0) {
-		DBG("tcp_listen");
-		goto lb_exit;
-	}
+        rc = tcp_listen(server_addr, SERVER_PORT, LISTEN_BACKLOG, &server_fd);
+        if (rc != 0) {
+                DBG("tcp_listen");
+                goto lb_exit;
+        }
 
-	while (loop_forever != 0) {
-		struct sockaddr_in client_sa = { 0 };
-		int client_fd;
+        while (loop_forever != 0) {
+                struct sockaddr_in client_sa = { 0 };
+                int client_fd;
 
-		printf("Waiting for connections [CTRL + C to quit]\n");
-		rc = tcp_accept(server_fd, &client_sa, &client_fd);
-		if (rc != 0) {
-			continue;
-		}
+                printf("Waiting for connections [CTRL + C to quit]\n");
+                rc = tcp_accept(server_fd, &client_sa, &client_fd);
+                if (rc != 0) {
+                        continue;
+                }
 
-		do {
-			rc = unpack_msg_reply(client_fd, NULL, NULL);
-		} while (rc == 0 && loop_forever != 0);
+                do {
+                        rc = unpack_msg_reply(client_fd, NULL, NULL);
+                } while (rc == 0 && loop_forever != 0);
 
-		tcp_disconnect(client_fd);
-		printf("Connection closed\n");
-	}
+                tcp_disconnect(client_fd);
+                printf("Connection closed\n");
+        }
 
-	tcp_disconnect(server_fd);
-	rc = 0;
+        tcp_disconnect(server_fd);
+        rc = 0;
 
 lb_exit:
-	return rc;
+        return rc;
 }
 
 static void signal_handler(int id)
 {
-	(void)id;
+        (void)id;
 
-	printf("\n\t\tBye!\n\n");
-	loop_forever = 0;
+        printf("\n\t\tBye!\n\n");
+        loop_forever = 0;
 }
 
 int main(void)
 {
-	set_tcp_timeout(60); /* seconds */
+        set_tcp_timeout(60); /* seconds */
 
-	signal(SIGPIPE, signal_handler);
-	signal(SIGTERM, signal_handler);
-	signal(SIGINT, signal_handler);
+        signal(SIGPIPE, signal_handler);
+        signal(SIGTERM, signal_handler);
+        signal(SIGINT, signal_handler);
 
-	return echo_server();
+        return echo_server();
 }
 

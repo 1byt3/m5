@@ -41,9 +41,9 @@
 #ifndef __TEST_COMMON_H__
 #define __TEST_COMMON_H__
 
-#define TEST_HDR(msg)	printf("------------------------\n%s\n", (msg))
-#define RC_TO_STR(rc)	((rc) == M5_SUCCESS ? "OK" : "ERROR")
-#define DBG(msg)	printf("\t%s:%d %s\n", __func__, __LINE__, msg)
+#define TEST_HDR(msg)   printf("------------------------\n%s\n", (msg))
+#define RC_TO_STR(rc)   ((rc) == M5_SUCCESS ? "OK" : "ERROR")
+#define DBG(msg)        printf("\t%s:%d %s\n", __func__, __LINE__, msg)
 
 #endif
 

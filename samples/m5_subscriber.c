@@ -54,42 +54,42 @@
 #include <stdlib.h>
 #include <signal.h>
 
-#define PEER_ADDR	{ 127, 0, 0, 1 }
-#define PEER_PORT	1863
-#define CLIENT_ID	"m5_subscriber"
+#define PEER_ADDR           { 127, 0, 0, 1 }
+#define PEER_PORT           1863
+#define CLIENT_ID           "m5_subscriber"
 
 static int loop_forever;
 
 static struct m5_topic topic_filters[] = {
-	{ .name = (uint8_t *)"srv/one", .len = 7, .options = M5_QoS1 },
-	{ .name = (uint8_t *)"sensors", .len = 7, .options = M5_QoS2 },
-	{ .name = (uint8_t *)"doors",   .len = 5, .options = M5_QoS0 },
-	{ .name = NULL } };
+        { .name = (uint8_t *)"srv/one", .len = 7, .options = M5_QoS1 },
+        { .name = (uint8_t *)"sensors", .len = 7, .options = M5_QoS2 },
+        { .name = (uint8_t *)"doors",   .len = 5, .options = M5_QoS0 },
+        { .name = NULL } };
 
 /* This routine does not consider wildcards in topic filters, it just
  * compares the topic name from a PUBLISH packet to all the topic filters
  * found at the topic_filters array.
  */
 static int validate_topic(uint8_t *topic_name, uint16_t topic_name_len,
-			  struct m5_topic topic_filters[], uint8_t items)
+                          struct m5_topic topic_filters[], uint8_t items)
 {
-	uint8_t i;
+        uint8_t i;
 
-	for (i = 0; i < items; i++) {
-		const char *topic_filter = (const char *)topic_filters[i].name;
-		int rc;
+        for (i = 0; i < items; i++) {
+                const char *topic_filter = (const char *)topic_filters[i].name;
+                int rc;
 
-		if (strlen(topic_filter) != topic_name_len) {
-			continue;
-		}
+                if (strlen(topic_filter) != topic_name_len) {
+                        continue;
+                }
 
-		rc = memcmp(topic_filter, (char *)topic_name, topic_name_len);
-		if (rc == 0) {
-			return 0;
-		}
-	}
+                rc = memcmp(topic_filter, (char *)topic_name, topic_name_len);
+                if (rc == 0) {
+                        return 0;
+                }
+        }
 
-	return -1;
+        return -1;
 }
 
 static uint16_t pkt_ids[2 * MAX_ARRAY_ELEMENTS] = { 0 };
@@ -97,229 +97,229 @@ static int max_pkt_ids = MAX_ARRAY_ELEMENTS;
 
 static int find_pkt_id(uint16_t pkt_id)
 {
-	int i;
+        int i;
 
-	for (i = 0; i < max_pkt_ids; i++) {
-		if (pkt_ids[2 * i] == pkt_id) {
-			return i;
-		}
-	}
+        for (i = 0; i < max_pkt_ids; i++) {
+                if (pkt_ids[2 * i] == pkt_id) {
+                        return i;
+                }
+        }
 
-	return -1;
+        return -1;
 }
 
 static int find_pkt_id_qos(uint16_t pkt_id, enum m5_qos qos)
 {
-	int idx;
+        int idx;
 
-	idx = find_pkt_id(pkt_id);
-	if (idx < 0) {
-		return -1;
-	}
+        idx = find_pkt_id(pkt_id);
+        if (idx < 0) {
+                return -1;
+        }
 
-	if (pkt_ids[2 * idx + 1] == qos) {
-		return idx;
-	}
+        if (pkt_ids[2 * idx + 1] == qos) {
+                return idx;
+        }
 
-	return -1;
+        return -1;
 }
 
 static int add_pkt_id(uint16_t pkt_id, enum m5_qos qos)
 {
-	int i;
+        int i;
 
-	if (pkt_id == 0) {
-		return -1;
-	}
-	switch (qos) {
-	default:
-	case M5_QoS0:
-		return -1;
-	case M5_QoS1:
-	case M5_QoS2:
-		break;
-	}
+        if (pkt_id == 0) {
+                return -1;
+        }
+        switch (qos) {
+        default:
+        case M5_QoS0:
+                return -1;
+        case M5_QoS1:
+        case M5_QoS2:
+                break;
+        }
 
-	i = find_pkt_id(pkt_id);
-	if (i >= 0) {
-		return -1;
-	}
+        i = find_pkt_id(pkt_id);
+        if (i >= 0) {
+                return -1;
+        }
 
-	for (i = 0; i < max_pkt_ids; i++) {
-		if (pkt_ids[2 * i] == 0) {
-			pkt_ids[2 * i + 0] = pkt_id;
-			pkt_ids[2 * i + 1] = qos;
+        for (i = 0; i < max_pkt_ids; i++) {
+                if (pkt_ids[2 * i] == 0) {
+                        pkt_ids[2 * i + 0] = pkt_id;
+                        pkt_ids[2 * i + 1] = qos;
 
-			return 0;
-		}
-	}
+                        return 0;
+                }
+        }
 
-	return -1;
+        return -1;
 }
 
 static void delete_idx(int idx)
 {
-	pkt_ids[2 * idx + 0] = 0;
-	pkt_ids[2 * idx + 1] = 0;
+        pkt_ids[2 * idx + 0] = 0;
+        pkt_ids[2 * idx + 1] = 0;
 }
 
 static int validate_packet(enum m5_pkt_type pkt_type, void *msg, void *user)
 {
-	struct m5_publish *msg_publish;
-	struct m5_pub_response *resp;
-	uint8_t items = 0;
-	int rc = -1;
-	int idx;
+        struct m5_publish *msg_publish;
+        struct m5_pub_response *resp;
+        uint8_t items = 0;
+        int rc = -1;
+        int idx;
 
-	(void)user;
+        (void)user;
 
-	while (topic_filters[items].name != NULL) {
-		items += 1;
-	}
+        while (topic_filters[items].name != NULL) {
+                items += 1;
+        }
 
-	switch (pkt_type) {
-	default:
-		DBG("invalid control packet for subscriber application");
-		goto lb_error;
-	case M5_PKT_PUBLISH:
-		msg_publish = (struct m5_publish *)msg;
+        switch (pkt_type) {
+        default:
+                DBG("invalid control packet for subscriber application");
+                goto lb_error;
+        case M5_PKT_PUBLISH:
+                msg_publish = (struct m5_publish *)msg;
 
-		rc = validate_topic(msg_publish->topic_name,
-				    msg_publish->topic_name_len,
-				    topic_filters, items);
-		if (rc != 0) {
-			DBG("invalid topic");
-			goto lb_error;
-		}
+                rc = validate_topic(msg_publish->topic_name,
+                                    msg_publish->topic_name_len,
+                                    topic_filters, items);
+                if (rc != 0) {
+                        DBG("invalid topic");
+                        goto lb_error;
+                }
 
-		if (msg_publish->qos == M5_QoS2) {
-			rc = add_pkt_id(msg_publish->packet_id,
-					msg_publish->qos);
-			if (rc != 0) {
-				DBG("unable to accept PUBLISH msg");
-				goto lb_error;
-			}
-		}
-		break;
-	case M5_PKT_PUBREL:
-		resp = (struct m5_pub_response *)msg;
+                if (msg_publish->qos == M5_QoS2) {
+                        rc = add_pkt_id(msg_publish->packet_id,
+                                        msg_publish->qos);
+                        if (rc != 0) {
+                                DBG("unable to accept PUBLISH msg");
+                                goto lb_error;
+                        }
+                }
+                break;
+        case M5_PKT_PUBREL:
+                resp = (struct m5_pub_response *)msg;
 
-		idx = find_pkt_id_qos(resp->packet_id, M5_QoS2);
-		if (idx < 0) {
-			DBG("invalid packet id");
-			goto lb_error;
-		}
+                idx = find_pkt_id_qos(resp->packet_id, M5_QoS2);
+                if (idx < 0) {
+                        DBG("invalid packet id");
+                        goto lb_error;
+                }
 
-		delete_idx(idx);
-		break;
-	case M5_PKT_PINGREQ:
-	case M5_PKT_PINGRESP:
-		break;
-	}
+                delete_idx(idx);
+                break;
+        case M5_PKT_PINGREQ:
+        case M5_PKT_PINGRESP:
+                break;
+        }
 
-	return 0;
+        return 0;
 
 lb_error:
-	return -1;
+        return -1;
 }
 
 static int client_subscribe(int fd)
 {
-	uint8_t data[MAX_BUF_SIZE];
-	struct app_buf buf = { .data = data,
-			       .size = sizeof(data) };
-	uint8_t rcodes[MAX_ARRAY_ELEMENTS];
-	struct m5_suback msg_suback = { .rc = rcodes,
-					.rc_size = MAX_ARRAY_ELEMENTS };
-	struct m5_prop prop = { 0 };
-	struct m5_subscribe msg;
-	uint8_t items = 0;
-	int rc;
+        uint8_t data[MAX_BUF_SIZE];
+        struct app_buf buf = { .data = data,
+                               .size = sizeof(data) };
+        uint8_t rcodes[MAX_ARRAY_ELEMENTS];
+        struct m5_suback msg_suback = { .rc = rcodes,
+                                        .rc_size = MAX_ARRAY_ELEMENTS };
+        struct m5_prop prop = { 0 };
+        struct m5_subscribe msg;
+        uint8_t items = 0;
+        int rc;
 
-	msg.topics = topic_filters;
-	while (topic_filters[items].name != NULL) {
-		items += 1;
-	}
+        msg.topics = topic_filters;
+        while (topic_filters[items].name != NULL) {
+                items += 1;
+        }
 
-	msg.items = items;
-	msg.size = items;
-	msg.packet_id = 0x01;
+        msg.items = items;
+        msg.size = items;
+        msg.packet_id = 0x01;
 
-	rc = pack_msg_write(fd, M5_PKT_SUBSCRIBE, &msg);
-	if (rc != 0) {
-		DBG("pack_msg_write SUBSCRIBE");
-		return -1;
-	}
+        rc = pack_msg_write(fd, M5_PKT_SUBSCRIBE, &msg);
+        if (rc != 0) {
+                DBG("pack_msg_write SUBSCRIBE");
+                return -1;
+        }
 
-	rc = tcp_read(fd, &buf);
-	if (rc != 0) {
-		DBG("tcp_read");
-		return -1;
-	}
+        rc = tcp_read(fd, &buf);
+        if (rc != 0) {
+                DBG("tcp_read");
+                return -1;
+        }
 
-	rc = m5_unpack_suback(NULL, &buf, &msg_suback, &prop);
-	if (rc != 0) {
-		DBG("m5_unpack_suback");
-		return -1;
-	}
+        rc = m5_unpack_suback(NULL, &buf, &msg_suback, &prop);
+        if (rc != 0) {
+                DBG("m5_unpack_suback");
+                return -1;
+        }
 
-	return 0;
+        return 0;
 }
 
 static int subscriber(void)
 {
-	uint8_t peer_addr[] = PEER_ADDR;
-	int socket_fd;
-	int rc;
+        uint8_t peer_addr[] = PEER_ADDR;
+        int socket_fd;
+        int rc;
 
-	rc = client_connect(&socket_fd, CLIENT_ID, peer_addr, PEER_PORT);
-	if (rc != 0) {
-		DBG("client_connect");
-		goto lb_exit;
-	}
+        rc = client_connect(&socket_fd, CLIENT_ID, peer_addr, PEER_PORT);
+        if (rc != 0) {
+                DBG("client_connect");
+                goto lb_exit;
+        }
 
-	rc = client_subscribe(socket_fd);
-	if (rc != 0) {
-		DBG("client_subscribe");
-		goto lb_exit;
-	}
+        rc = client_subscribe(socket_fd);
+        if (rc != 0) {
+                DBG("client_subscribe");
+                goto lb_exit;
+        }
 
-	while (loop_forever) {
-		rc = unpack_msg_reply(socket_fd, validate_packet, NULL);
-		if (rc != 0) {
-			DBG("unpack_msg_reply");
-			goto lb_close;
-		}
-	}
+        while (loop_forever) {
+                rc = unpack_msg_reply(socket_fd, validate_packet, NULL);
+                if (rc != 0) {
+                        DBG("unpack_msg_reply");
+                        goto lb_close;
+                }
+        }
 
-	rc = 0;
+        rc = 0;
 
 lb_close:
-	printf("Connection closed\n");
-	tcp_disconnect(socket_fd);
+        printf("Connection closed\n");
+        tcp_disconnect(socket_fd);
 
 lb_exit:
-	return rc;
+        return rc;
 }
 
 static void signal_handler(int id)
 {
-	(void)id;
+        (void)id;
 
-	printf("\n\t\tBye!\n\n");
-	loop_forever = 0;
+        printf("\n\t\tBye!\n\n");
+        loop_forever = 0;
 }
 
 int main(void)
 {
-	set_tcp_timeout(5); /* seconds */
+        set_tcp_timeout(5); /* seconds */
 
-	loop_forever = 1;
+        loop_forever = 1;
 
-	signal(SIGPIPE, signal_handler);
-	signal(SIGTERM, signal_handler);
-	signal(SIGINT, signal_handler);
+        signal(SIGPIPE, signal_handler);
+        signal(SIGTERM, signal_handler);
+        signal(SIGINT, signal_handler);
 
-	return subscriber();
+        return subscriber();
 }
 

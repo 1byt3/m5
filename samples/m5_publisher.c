@@ -53,96 +53,96 @@
 #include <stdlib.h>
 #include <signal.h>
 
-#define PEER_ADDR	{ 127, 0, 0, 1 }
-#define PEER_PORT	1863
+#define PEER_ADDR           { 127, 0, 0, 1 }
+#define PEER_PORT           1863
 
-#define CLIENT_ID		"m5_publisher"
-#define TOPIC_NAME		"greetings"
-#define PUBLISH_PAYLOAD		"Hello, World!"
+#define CLIENT_ID           "m5_publisher"
+#define TOPIC_NAME          "greetings"
+#define PUBLISH_PAYLOAD     "Hello, World!"
 
-#define MAX_PACKET_ID		32
+#define MAX_PACKET_ID       32
 
 static int loop_forever;
 
 static int publish(int fd)
 {
-	uint8_t qos[] = { M5_QoS0, M5_QoS1, M5_QoS2 };
-	struct m5_publish msg = { 0 };
-	static uint16_t packet_id = 1;
-	static int i = -1;
-	int rc;
+        uint8_t qos[] = { M5_QoS0, M5_QoS1, M5_QoS2 };
+        struct m5_publish msg = { 0 };
+        static uint16_t packet_id = 1;
+        static int i = -1;
+        int rc;
 
-	i = (i + 1) % sizeof(qos);
+        i = (i + 1) % sizeof(qos);
 
-	msg.payload = (uint8_t *)PUBLISH_PAYLOAD;
-	msg.payload_len = strlen(PUBLISH_PAYLOAD);
-	msg.topic_name = (uint8_t *)TOPIC_NAME;
-	msg.topic_name_len = strlen(TOPIC_NAME);
-	msg.qos = qos[i];
+        msg.payload = (uint8_t *)PUBLISH_PAYLOAD;
+        msg.payload_len = strlen(PUBLISH_PAYLOAD);
+        msg.topic_name = (uint8_t *)TOPIC_NAME;
+        msg.topic_name_len = strlen(TOPIC_NAME);
+        msg.qos = qos[i];
 
-	if (msg.qos != M5_QoS0) {
-		msg.packet_id = packet_id;
-		packet_id = 1 + packet_id%(MAX_PACKET_ID - 1);
-	}
+        if (msg.qos != M5_QoS0) {
+                msg.packet_id = packet_id;
+                packet_id = 1 + packet_id%(MAX_PACKET_ID - 1);
+        }
 
-	rc = publish_message(fd, &msg, &loop_forever);
-	if (rc != 0) {
-		DBG("publish_message");
-		return -1;
-	}
+        rc = publish_message(fd, &msg, &loop_forever);
+        if (rc != 0) {
+                DBG("publish_message");
+                return -1;
+        }
 
-	return 0;
+        return 0;
 }
 
 static int publisher(void)
 {
-	uint8_t peer_addr[] = PEER_ADDR;
-	int socket_fd;
-	int rc;
+        uint8_t peer_addr[] = PEER_ADDR;
+        int socket_fd;
+        int rc;
 
-	rc = client_connect(&socket_fd, CLIENT_ID, peer_addr, PEER_PORT);
-	if (rc != 0) {
-		DBG("publisher_connect");
-		goto lb_exit;
-	}
+        rc = client_connect(&socket_fd, CLIENT_ID, peer_addr, PEER_PORT);
+        if (rc != 0) {
+                DBG("publisher_connect");
+                goto lb_exit;
+        }
 
-	while (loop_forever) {
-		rc = publish(socket_fd);
-		if (rc != 0) {
-			DBG("publish");
-			goto lb_close;
-		}
+        while (loop_forever) {
+                rc = publish(socket_fd);
+                if (rc != 0) {
+                        DBG("publish");
+                        goto lb_close;
+                }
 
-		sleep(1);
-	}
+                sleep(1);
+        }
 
-	rc = 0;
+        rc = 0;
 
 lb_close:
-	printf("Connection closed\n");
-	tcp_disconnect(socket_fd);
+        printf("Connection closed\n");
+        tcp_disconnect(socket_fd);
 
 lb_exit:
-	return rc;
+        return rc;
 }
 
 static void signal_handler(int id)
 {
-	(void)id;
+        (void)id;
 
-	printf("\n\t\tBye!\n\n");
-	loop_forever = 0;
+        printf("\n\t\tBye!\n\n");
+        loop_forever = 0;
 }
 
 int main(void)
 {
-	set_tcp_timeout(5); /* seconds */
+        set_tcp_timeout(5); /* seconds */
 
-	loop_forever = 1;
+        loop_forever = 1;
 
-	signal(SIGPIPE, signal_handler);
-	signal(SIGTERM, signal_handler);
-	signal(SIGINT, signal_handler);
+        signal(SIGPIPE, signal_handler);
+        signal(SIGTERM, signal_handler);
+        signal(SIGINT, signal_handler);
 
-	return publisher();
+        return publisher();
 }

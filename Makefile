@@ -88,7 +88,8 @@ memtest:
 	cd $(TESTS_DIR) && $(MAKE) memtest
 
 checkpatch:
-	@git --no-pager diff HEAD~ HEAD | perl ./checkpatch.pl -q --no-tree --ignore BRACES,FILE_PATH_CHANGES,CONST_STRUCT,MACRO_WITH_FLOW_CONTROL -
+	@echo "checkpatch is now disabled"
+#	@git --no-pager diff HEAD~ HEAD | perl ./checkpatch.pl -q --no-tree --ignore BRACES,FILE_PATH_CHANGES,CONST_STRUCT,MACRO_WITH_FLOW_CONTROL -
 
 clean:
 	@rm -f bin/*

@@ -45,254 +45,254 @@
 #include <stddef.h>
 
 #ifndef M5_SKIP_ON_FULL_USER_PROP
-#define M5_SKIP_ON_FULL_USER_PROP	0
+#define M5_SKIP_ON_FULL_USER_PROP        0
 #endif
 
 enum m5_status {
-	M5_SUCCESS = 0,
-	M5_INVALID_ARGUMENT,
-	M5_INVALID_NULL_ARGUMENT,
-	M5_NOT_ENOUGH_SPACE_IN_BUFFER,
-	M5_INVALID_FIXED_HEADER,
-	M5_INVALID_VARIABLE_HEADER,
-	M5_INVALID_PAYLOAD,
-	M5_INVALID_REMLEN_VBI,
-	M5_INVALID_PROPERTIES,
-	M5_INVALID_PROPERTY_VBI,
-	M5_FINISHED_READING_INVALID_LENGTH,
-	M5_FINISHED_WRITING_INVALID_LENGTH,
-	M5_USER_PROPERTY_ARRAY_IS_FULL,
+        M5_SUCCESS = 0,
+        M5_INVALID_ARGUMENT,
+        M5_INVALID_NULL_ARGUMENT,
+        M5_NOT_ENOUGH_SPACE_IN_BUFFER,
+        M5_INVALID_FIXED_HEADER,
+        M5_INVALID_VARIABLE_HEADER,
+        M5_INVALID_PAYLOAD,
+        M5_INVALID_REMLEN_VBI,
+        M5_INVALID_PROPERTIES,
+        M5_INVALID_PROPERTY_VBI,
+        M5_FINISHED_READING_INVALID_LENGTH,
+        M5_FINISHED_WRITING_INVALID_LENGTH,
+        M5_USER_PROPERTY_ARRAY_IS_FULL,
 };
 
 struct m5_ctx {
-	enum m5_status status;
-	/* will have more fields in future releases */
+        enum m5_status status;
+        /* will have more fields in future releases */
 };
 
 /*
  * App buffer data structure
  */
 struct app_buf {
-	uint8_t *data;
-	size_t offset;
+        uint8_t *data;
+        size_t offset;
 
-	size_t size;
-	size_t len;
+        size_t size;
+        size_t len;
 };
 
 enum m5_protocol {
-	M5_5 = 5
+        M5_5 = 5
 };
 
 enum m5_qos {
-	M5_QoS0 = 0,
-	M5_QoS1,
-	M5_QoS2
+        M5_QoS0 = 0,
+        M5_QoS1,
+        M5_QoS2
 };
 
 enum m5_pkt_type {
-	M5_PKT_RESERVED = 0,
-	M5_PKT_CONNECT,
-	M5_PKT_CONNACK,
-	M5_PKT_PUBLISH,
-	M5_PKT_PUBACK,
-	M5_PKT_PUBREC,
-	M5_PKT_PUBREL,
-	M5_PKT_PUBCOMP,
-	M5_PKT_SUBSCRIBE,
-	M5_PKT_SUBACK,
-	M5_PKT_UNSUBSCRIBE,
-	M5_PKT_UNSUBACK,
-	M5_PKT_PINGREQ,
-	M5_PKT_PINGRESP,
-	M5_PKT_DISCONNECT,
-	M5_PKT_AUTH,
-	M5_PKT_RESERVED_UB,
+        M5_PKT_RESERVED = 0,
+        M5_PKT_CONNECT,
+        M5_PKT_CONNACK,
+        M5_PKT_PUBLISH,
+        M5_PKT_PUBACK,
+        M5_PKT_PUBREC,
+        M5_PKT_PUBREL,
+        M5_PKT_PUBCOMP,
+        M5_PKT_SUBSCRIBE,
+        M5_PKT_SUBACK,
+        M5_PKT_UNSUBSCRIBE,
+        M5_PKT_UNSUBACK,
+        M5_PKT_PINGREQ,
+        M5_PKT_PINGRESP,
+        M5_PKT_DISCONNECT,
+        M5_PKT_AUTH,
+        M5_PKT_RESERVED_UB,
 };
 
 enum m5_reason_code {
-	M5_RC_SUCCESS = 0,
-	M5_RC_NORMAL_DISCONNECTION = 0,
-	M5_RC_GRANTED_QOS0 = 0,
-	M5_RC_GRANTED_QOS1,
-	M5_RC_GRANTED_QOS2,
-	M5_RC_DISCONNECT_WILL = 4,
-	M5_RC_NO_MATCHING_SUBSCRIBERS = 16,
-	M5_RC_NO_SUBSCRIPTION_EXISTED,
-	M5_RC_CONTINUE_AUTHENTICATION = 24,
-	M5_RC_RE_AUTHENTICATE,
-	M5_RC_UNSPECIFIED_ERROR = 128,
-	M5_RC_MALFORMED_PACKET,
-	M5_RC_PROTOCOL_ERROR,
-	M5_RC_IMPLEMENTATION_SPECIFIC_ERROR,
-	M5_RC_UNSUPPORTED_PROTOCOL_VERSION,
-	M5_RC_CLIENT_IDENTIFIER_NOT_VALID,
-	M5_RC_BAD_USER_NAME_OR_PASSWORD,
-	M5_RC_NOT_AUTHORIZED,
-	M5_RC_SERVER_UNAVAILABLE,
-	M5_RC_SERVER_BUSY,
-	M5_RC_BANNED,
-	M5_RC_SERVER_SHUTTING_DOWN,
-	M5_RC_BAD_AUTHENTICATION_METHOD,
-	M5_RC_KEEP_ALIVE_TIMEOUT,
-	M5_RC_SESSION_TAKEN_OVER,
-	M5_RC_TOPIC_FILTER_INVALID,
-	M5_RC_TOPIC_NAME_INVALID,
-	M5_RC_PACKET_IDENTIFIER_IN_USE,
-	M5_RC_PACKET_IDENTIFIER_NOT_FOUND,
-	M5_RC_RECEIVE_MAXIMUM_EXCEEDED,
-	M5_RC_TOPIC_ALIAS_INVALID,
-	M5_RC_PACKET_TOO_LARGE,
-	M5_RC_MESSAGE_RATE_TOO_HIGH,
-	M5_RC_QUOTA_EXCEEDED,
-	M5_RC_ADMINISTRATIVE_ACTION,
-	M5_RC_PAYLOAD_FORMAT_INVALID,
-	M5_RC_RETAIN_NOT_SUPPORTED,
-	M5_RC_QOS_NOT_SUPPORTED,
-	M5_RC_USE_ANOTHER_SERVER,
-	M5_RC_SERVER_MOVED,
-	M5_RC_SHARED_SUBSCRIPTION_NOT_SUPPORTED,
-	M5_RC_CONNECTION_RATE_EXCEEDED,
-	M5_RC_MAXIMUM_CONNECT_TIME,
-	M5_RC_SUBSCRIPTION_IDENTIFIERS_NOT_SUPPORTED,
-	M5_RC_WILDCARD_SUBSCRIPTION_NOT_SUPPORTED
+        M5_RC_SUCCESS = 0,
+        M5_RC_NORMAL_DISCONNECTION = 0,
+        M5_RC_GRANTED_QOS0 = 0,
+        M5_RC_GRANTED_QOS1,
+        M5_RC_GRANTED_QOS2,
+        M5_RC_DISCONNECT_WILL = 4,
+        M5_RC_NO_MATCHING_SUBSCRIBERS = 16,
+        M5_RC_NO_SUBSCRIPTION_EXISTED,
+        M5_RC_CONTINUE_AUTHENTICATION = 24,
+        M5_RC_RE_AUTHENTICATE,
+        M5_RC_UNSPECIFIED_ERROR = 128,
+        M5_RC_MALFORMED_PACKET,
+        M5_RC_PROTOCOL_ERROR,
+        M5_RC_IMPLEMENTATION_SPECIFIC_ERROR,
+        M5_RC_UNSUPPORTED_PROTOCOL_VERSION,
+        M5_RC_CLIENT_IDENTIFIER_NOT_VALID,
+        M5_RC_BAD_USER_NAME_OR_PASSWORD,
+        M5_RC_NOT_AUTHORIZED,
+        M5_RC_SERVER_UNAVAILABLE,
+        M5_RC_SERVER_BUSY,
+        M5_RC_BANNED,
+        M5_RC_SERVER_SHUTTING_DOWN,
+        M5_RC_BAD_AUTHENTICATION_METHOD,
+        M5_RC_KEEP_ALIVE_TIMEOUT,
+        M5_RC_SESSION_TAKEN_OVER,
+        M5_RC_TOPIC_FILTER_INVALID,
+        M5_RC_TOPIC_NAME_INVALID,
+        M5_RC_PACKET_IDENTIFIER_IN_USE,
+        M5_RC_PACKET_IDENTIFIER_NOT_FOUND,
+        M5_RC_RECEIVE_MAXIMUM_EXCEEDED,
+        M5_RC_TOPIC_ALIAS_INVALID,
+        M5_RC_PACKET_TOO_LARGE,
+        M5_RC_MESSAGE_RATE_TOO_HIGH,
+        M5_RC_QUOTA_EXCEEDED,
+        M5_RC_ADMINISTRATIVE_ACTION,
+        M5_RC_PAYLOAD_FORMAT_INVALID,
+        M5_RC_RETAIN_NOT_SUPPORTED,
+        M5_RC_QOS_NOT_SUPPORTED,
+        M5_RC_USE_ANOTHER_SERVER,
+        M5_RC_SERVER_MOVED,
+        M5_RC_SHARED_SUBSCRIPTION_NOT_SUPPORTED,
+        M5_RC_CONNECTION_RATE_EXCEEDED,
+        M5_RC_MAXIMUM_CONNECT_TIME,
+        M5_RC_SUBSCRIPTION_IDENTIFIERS_NOT_SUPPORTED,
+        M5_RC_WILDCARD_SUBSCRIPTION_NOT_SUPPORTED
 };
 
 struct m5_key_val {
-	uint8_t *key;
-	uint8_t *value;
+        uint8_t *key;
+        uint8_t *value;
 
-	uint16_t key_len;
-	uint16_t value_len;
+        uint16_t key_len;
+        uint16_t value_len;
 };
 
 struct m5_prop {
-	struct m5_key_val *_user_prop;
+        struct m5_key_val *_user_prop;
 
-	uint8_t *_auth_method;
-	uint8_t *_auth_data;
-	uint8_t *_content_type;
-	uint8_t *_correlation_data;
-	uint8_t *_response_info;
-	uint8_t *_server_reference;
-	uint8_t *_reason_str;
-	uint8_t *_assigned_client_id;
-	uint8_t *_response_topic;
+        uint8_t *_auth_method;
+        uint8_t *_auth_data;
+        uint8_t *_content_type;
+        uint8_t *_correlation_data;
+        uint8_t *_response_info;
+        uint8_t *_server_reference;
+        uint8_t *_reason_str;
+        uint8_t *_assigned_client_id;
+        uint8_t *_response_topic;
 
-	uint32_t flags;
+        uint32_t flags;
 
-	uint32_t _max_packet_size;
-	uint32_t _publication_expiry_interval;
-	uint32_t _session_expiry_interval;
-	uint32_t _subscription_id;
-	uint32_t _will_delay_interval;
+        uint32_t _max_packet_size;
+        uint32_t _publication_expiry_interval;
+        uint32_t _session_expiry_interval;
+        uint32_t _subscription_id;
+        uint32_t _will_delay_interval;
 
-	uint32_t _user_prop_wsize;
+        uint32_t _user_prop_wsize;
 
-	uint16_t _receive_max;
-	uint16_t _server_keep_alive;
-	uint16_t _topic_alias;
-	uint16_t _topic_alias_max;
+        uint16_t _receive_max;
+        uint16_t _server_keep_alive;
+        uint16_t _topic_alias;
+        uint16_t _topic_alias_max;
 
-	uint8_t _auth_method_len;
-	uint8_t _auth_data_len;
-	uint8_t _content_type_len;
-	uint8_t _correlation_data_len;
-	uint8_t _response_info_len;
-	uint8_t _server_reference_len;
-	uint8_t _reason_str_len;
-	uint8_t _assigned_client_id_len;
-	uint8_t _response_topic_len;
+        uint8_t _auth_method_len;
+        uint8_t _auth_data_len;
+        uint8_t _content_type_len;
+        uint8_t _correlation_data_len;
+        uint8_t _response_info_len;
+        uint8_t _server_reference_len;
+        uint8_t _reason_str_len;
+        uint8_t _assigned_client_id_len;
+        uint8_t _response_topic_len;
 
-	uint8_t _payload_format_indicator;
-	uint8_t _max_qos;
-	uint8_t _retain_available;
-	uint8_t _wildcard_subscription_available;
-	uint8_t _subscription_id_available;
-	uint8_t _shared_subscription_available;
+        uint8_t _payload_format_indicator;
+        uint8_t _max_qos;
+        uint8_t _retain_available;
+        uint8_t _wildcard_subscription_available;
+        uint8_t _subscription_id_available;
+        uint8_t _shared_subscription_available;
 
-	/* Max number of elements in the User Properties array */
-	uint8_t _user_prop_size;
-	/* Number of elements in the User Properties array */
-	uint8_t _user_prop_items;
+        /* Max number of elements in the User Properties array */
+        uint8_t _user_prop_size;
+        /* Number of elements in the User Properties array */
+        uint8_t _user_prop_items;
 
-	uint8_t _request_response_info;
-	uint8_t _request_problem_info;
+        uint8_t _request_response_info;
+        uint8_t _request_problem_info;
 };
 
 struct m5_connect {
-	uint8_t *client_id;
-	uint8_t *will_topic;
-	uint8_t *will_msg;
-	uint8_t *user_name;
-	uint8_t *password;
+        uint8_t *client_id;
+        uint8_t *will_topic;
+        uint8_t *will_msg;
+        uint8_t *user_name;
+        uint8_t *password;
 
-	uint16_t client_id_len;
-	uint16_t will_topic_len;
-	uint16_t will_msg_len;
-	uint16_t user_name_len;
-	uint16_t password_len;
+        uint16_t client_id_len;
+        uint16_t will_topic_len;
+        uint16_t will_msg_len;
+        uint16_t user_name_len;
+        uint16_t password_len;
 
-	uint16_t keep_alive;
+        uint16_t keep_alive;
 
-	uint8_t will_retain;
-	uint8_t will_qos;
-	uint8_t clean_start;
+        uint8_t will_retain;
+        uint8_t will_qos;
+        uint8_t clean_start;
 
-	uint8_t flags;
+        uint8_t flags;
 };
 
 struct m5_connack {
-	uint8_t session_present;
-	uint8_t return_code;
+        uint8_t session_present;
+        uint8_t return_code;
 };
 
 struct m5_publish {
-	uint8_t *payload;
-	uint8_t *topic_name;
+        uint8_t *payload;
+        uint8_t *topic_name;
 
-	uint32_t payload_len;
+        uint32_t payload_len;
 
-	uint16_t topic_name_len;
-	uint16_t packet_id;
+        uint16_t topic_name_len;
+        uint16_t packet_id;
 
-	uint8_t dup;
-	uint8_t qos;
-	uint8_t retain;
+        uint8_t dup;
+        uint8_t qos;
+        uint8_t retain;
 };
 
 struct m5_pub_response {
-	uint16_t packet_id;
-	uint8_t reason_code;
+        uint16_t packet_id;
+        uint8_t reason_code;
 };
 
 struct m5_topic {
-	uint8_t *name;
-	uint16_t len;
+        uint8_t *name;
+        uint16_t len;
 
-	uint8_t options;
+        uint8_t options;
 };
 
 struct m5_subscribe {
-	struct m5_topic *topics;
+        struct m5_topic *topics;
 
-	uint8_t items;
-	uint8_t size;
+        uint8_t items;
+        uint8_t size;
 
-	uint16_t packet_id;
+        uint16_t packet_id;
 };
 
 struct m5_suback {
-	uint8_t *rc;
+        uint8_t *rc;
 
-	uint16_t packet_id;
+        uint16_t packet_id;
 
-	uint8_t rc_size;
-	uint8_t rc_items;
+        uint8_t rc_size;
+        uint8_t rc_items;
 };
 
 struct m5_rc {
-	uint8_t reason_code;
+        uint8_t reason_code;
 };
 
 size_t buf_bytes_to_read(struct app_buf *buf);
@@ -308,20 +308,20 @@ void m5_prop_payload_format_indicator(struct m5_prop *prop, uint8_t v);
 void m5_prop_publication_expiry_interval(struct m5_prop *prop, uint32_t v);
 
 void m5_prop_content_type(struct m5_prop *prop,
-			  uint8_t *data, uint16_t data_len);
+                          uint8_t *data, uint16_t data_len);
 
 void m5_prop_response_topic(struct m5_prop *prop,
-			    uint8_t *data, uint16_t data_len);
+                            uint8_t *data, uint16_t data_len);
 
 void m5_prop_correlation_data(struct m5_prop *prop,
-			      uint8_t *data, uint16_t data_len);
+                              uint8_t *data, uint16_t data_len);
 
 void m5_prop_subscription_id(struct m5_prop *prop, uint32_t v);
 
 void m5_prop_session_expiry_interval(struct m5_prop *prop, uint32_t v);
 
 void m5_prop_assigned_client_id(struct m5_prop *prop,
-				uint8_t *data, uint16_t data_len);
+                                uint8_t *data, uint16_t data_len);
 
 void m5_prop_server_keep_alive(struct m5_prop *prop, uint16_t v);
 
@@ -352,8 +352,8 @@ void m5_prop_max_qos(struct m5_prop *prop, uint8_t v);
 void m5_prop_retain_available(struct m5_prop *prop, uint8_t v);
 
 int m5_prop_add_user_prop(struct m5_prop *prop,
-			  uint8_t *key, uint16_t key_len,
-			  uint8_t *value, uint16_t value_len);
+                          uint8_t *key, uint16_t key_len,
+                          uint8_t *value, uint16_t value_len);
 
 void m5_prop_max_packet_size(struct m5_prop *prop, uint32_t v);
 
@@ -368,70 +368,70 @@ void m5_prop_shared_subscription_available(struct m5_prop *prop, uint8_t v);
 int m5_unpack_ignore(struct m5_ctx *ctx, struct app_buf *buf);
 
 int m5_pack_connect(struct m5_ctx *ctx, struct app_buf *buf,
-		    struct m5_connect *msg, struct m5_prop *prop);
+                    struct m5_connect *msg, struct m5_prop *prop);
 
 int m5_unpack_connect(struct m5_ctx *ctx, struct app_buf *buf,
-		      struct m5_connect *msg, struct m5_prop *prop);
+                      struct m5_connect *msg, struct m5_prop *prop);
 
 int m5_pack_connack(struct m5_ctx *ctx, struct app_buf *buf,
-		    struct m5_connack *msg, struct m5_prop *prop);
+                    struct m5_connack *msg, struct m5_prop *prop);
 
 int m5_unpack_connack(struct m5_ctx *ctx, struct app_buf *buf,
-		      struct m5_connack *msg, struct m5_prop *prop);
+                      struct m5_connack *msg, struct m5_prop *prop);
 
 int m5_pack_publish(struct m5_ctx *ctx, struct app_buf *buf,
-		    struct m5_publish *msg, struct m5_prop *prop);
+                    struct m5_publish *msg, struct m5_prop *prop);
 
 int m5_unpack_publish(struct m5_ctx *ctx, struct app_buf *buf,
-		      struct m5_publish *msg, struct m5_prop *prop);
+                      struct m5_publish *msg, struct m5_prop *prop);
 
 int m5_pack_puback(struct m5_ctx *ctx, struct app_buf *buf,
-		   struct m5_pub_response *msg, struct m5_prop *prop);
+                   struct m5_pub_response *msg, struct m5_prop *prop);
 
 int m5_unpack_puback(struct m5_ctx *ctx, struct app_buf *buf,
-		     struct m5_pub_response *msg, struct m5_prop *prop);
+                     struct m5_pub_response *msg, struct m5_prop *prop);
 
 int m5_pack_pubrec(struct m5_ctx *ctx, struct app_buf *buf,
-		   struct m5_pub_response *msg, struct m5_prop *prop);
+                   struct m5_pub_response *msg, struct m5_prop *prop);
 
 int m5_unpack_pubrec(struct m5_ctx *ctx, struct app_buf *buf,
-		     struct m5_pub_response *msg, struct m5_prop *prop);
+                     struct m5_pub_response *msg, struct m5_prop *prop);
 
 int m5_pack_pubrel(struct m5_ctx *ctx, struct app_buf *buf,
-		   struct m5_pub_response *msg, struct m5_prop *prop);
+                   struct m5_pub_response *msg, struct m5_prop *prop);
 
 int m5_unpack_pubrel(struct m5_ctx *ctx, struct app_buf *buf,
-		     struct m5_pub_response *msg, struct m5_prop *prop);
+                     struct m5_pub_response *msg, struct m5_prop *prop);
 
 int m5_pack_pubcomp(struct m5_ctx *ctx, struct app_buf *buf,
-		    struct m5_pub_response *msg, struct m5_prop *prop);
+                    struct m5_pub_response *msg, struct m5_prop *prop);
 
 int m5_unpack_pubcomp(struct m5_ctx *ctx, struct app_buf *buf,
-		      struct m5_pub_response *msg, struct m5_prop *prop);
+                      struct m5_pub_response *msg, struct m5_prop *prop);
 
 int m5_pack_subscribe(struct m5_ctx *ctx, struct app_buf *buf,
-		      struct m5_subscribe *msg, struct m5_prop *prop);
+                      struct m5_subscribe *msg, struct m5_prop *prop);
 
 int m5_unpack_subscribe(struct m5_ctx *ctx, struct app_buf *buf,
-			struct m5_subscribe *msg, struct m5_prop *prop);
+                        struct m5_subscribe *msg, struct m5_prop *prop);
 
 int m5_pack_suback(struct m5_ctx *ctx, struct app_buf *buf,
-		   struct m5_suback *msg, struct m5_prop *prop);
+                   struct m5_suback *msg, struct m5_prop *prop);
 
 int m5_unpack_suback(struct m5_ctx *ctx, struct app_buf *buf,
-		     struct m5_suback *msg, struct m5_prop *prop);
+                     struct m5_suback *msg, struct m5_prop *prop);
 
 int m5_pack_unsubscribe(struct m5_ctx *ctx, struct app_buf *buf,
-			struct m5_subscribe *msg);
+                        struct m5_subscribe *msg);
 
 int m5_unpack_unsubscribe(struct m5_ctx *ctx, struct app_buf *buf,
-			  struct m5_subscribe *msg);
+                          struct m5_subscribe *msg);
 
 int m5_pack_unsuback(struct m5_ctx *ctx, struct app_buf *buf,
-		     struct m5_suback *msg, struct m5_prop *prop);
+                     struct m5_suback *msg, struct m5_prop *prop);
 
 int m5_unpack_unsuback(struct m5_ctx *ctx, struct app_buf *buf,
-		       struct m5_suback *msg, struct m5_prop *prop);
+                       struct m5_suback *msg, struct m5_prop *prop);
 
 int m5_pack_pingreq(struct m5_ctx *ctx, struct app_buf *buf);
 
@@ -442,15 +442,15 @@ int m5_pack_pingresp(struct m5_ctx *ctx, struct app_buf *buf);
 int m5_unpack_pingresp(struct m5_ctx *ctx, struct app_buf *buf);
 
 int m5_pack_disconnect(struct m5_ctx *ctx, struct app_buf *buf,
-		       struct m5_rc *msg, struct m5_prop *prop);
+                       struct m5_rc *msg, struct m5_prop *prop);
 
 int m5_unpack_disconnect(struct m5_ctx *ctx, struct app_buf *buf,
-			 struct m5_rc *msg, struct m5_prop *prop);
+                         struct m5_rc *msg, struct m5_prop *prop);
 
 int m5_pack_auth(struct m5_ctx *ctx, struct app_buf *buf,
-		 struct m5_rc *msg, struct m5_prop *prop);
+                 struct m5_rc *msg, struct m5_prop *prop);
 
 int m5_unpack_auth(struct m5_ctx *ctx, struct app_buf *buf,
-		   struct m5_rc *msg, struct m5_prop *prop);
+                   struct m5_rc *msg, struct m5_prop *prop);
 
 #endif

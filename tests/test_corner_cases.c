@@ -56,31 +56,29 @@
 
 static void test_user_prop(void)
 {
-	struct m5_prop prop = { 0 };
+        struct m5_prop prop = { 0 };
 
+        char hello_world[] = "Hello, World!";
+        uint16_t data_len;
+        uint8_t *data;
+        int rc;
 
-	char hello_world[] = "Hello, World!";
-	uint16_t data_len;
-	uint8_t *data;
-	int rc;
+        TEST_HDR(__func__);
 
-	TEST_HDR(__func__);
+        data = (uint8_t *)hello_world;
+        data_len = strlen(hello_world);
 
-	data = (uint8_t *)hello_world;
-	data_len = strlen(hello_world);
-
-	/* This will not fail because M5_SKIP_ON_FULL_USER_PROP is 1 */
-	rc = m5_prop_add_user_prop(&prop, data, data_len, data, data_len);
-	if (rc != M5_SUCCESS) {
-		DBG("m5_prop_add_user_prop");
-		exit(-1);
-	}
+        /* This will not fail because M5_SKIP_ON_FULL_USER_PROP is 1 */
+        rc = m5_prop_add_user_prop(&prop, data, data_len, data, data_len);
+        if (rc != M5_SUCCESS) {
+                DBG("m5_prop_add_user_prop");
+                exit(-1);
+        }
 }
 
 int main(void)
 {
-	test_user_prop();
+        test_user_prop();
 
-	return 0;
+        return 0;
 }
-
