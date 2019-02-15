@@ -2998,6 +2998,11 @@ static int unpack_pub_msgs_var_hdr(struct app_buf *buf,
                 return rc;
         }
 
+        if (pack_info->remlen == M5_PACKET_ID_WSIZE) {
+                msg->reason_code = M5_RC_SUCCESS;
+                return M5_SUCCESS;
+        }
+
         rc = m5_unpack_u8(buf, &msg->reason_code);
         if (rc != M5_SUCCESS) {
                 return rc;
