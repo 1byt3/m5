@@ -55,7 +55,7 @@
 #include <signal.h>
 
 #define PEER_ADDR           { 127, 0, 0, 1 }
-#define PEER_PORT           1863
+#define PEER_PORT           1883
 #define CLIENT_ID           "m5_subscriber"
 
 static int loop_forever;
@@ -288,15 +288,13 @@ static int subscriber(void)
                 rc = unpack_msg_reply(socket_fd, validate_packet, NULL);
                 if (rc != 0) {
                         DBG("unpack_msg_reply");
-                        goto lb_close;
                 }
         }
 
         rc = 0;
 
-lb_close:
         printf("Connection closed\n");
-        tcp_disconnect(socket_fd);
+        client_disconnect(socket_fd, M5_RC_NORMAL_DISCONNECTION);
 
 lb_exit:
         return rc;
