@@ -52,7 +52,11 @@
 #define MAX_BUF_SIZE        128
 #define MAX_ARRAY_ELEMENTS  16
 
-#define DBG(msg) fprintf(stderr, "[%s:%d] %s\n", __func__, __LINE__, msg)
+#if DEBUG
+#define DBG(msg)    fprintf(stderr, "[%s:%d] %s\n", __func__, __LINE__, msg)
+#else
+#define DBG(msg)
+#endif
 
 void set_tcp_timeout(int timeout);
 
@@ -71,6 +75,8 @@ void tcp_disconnect(int socket_fd);
 
 int client_connect(int *socket_fd, const char *client_id,
                    uint8_t peer_addr[4], uint16_t peer_port);
+
+int client_disconnect(int socket_fd, int reason_code);
 
 int pack_msg_write(int socket_fd, enum m5_pkt_type type, void *msg);
 
