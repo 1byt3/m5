@@ -291,6 +291,23 @@ lb_error:
         return -1;
 }
 
+int client_disconnect(int socket_fd, int reason_code)
+{
+        struct m5_rc msg = { .reason_code = reason_code };
+        int rc;
+
+        rc = pack_msg_write(socket_fd, M5_PKT_DISCONNECT, &msg);
+        if (rc != 0) {
+                DBG("pack_msg_write DISCONNECT");
+                goto lb_error_disconnect;
+        }
+
+lb_error_disconnect:
+        tcp_disconnect(socket_fd);
+
+        return 0;
+}
+
 #define PACK_UNPACK(pre, packet, m5_type, ...)                                \
 static int pre ## _ ## packet(struct m5_ctx *ctx, struct app_buf *buf,        \
                               void *_msg, struct m5_prop *prop)                \
@@ -829,7 +846,7 @@ static void print_disconnect_auth(void *data, const char *legend, int pkt)
 {
         struct m5_rc *msg = (struct m5_rc *)data;
 
-        printf("%s: %s\n\tReason code: %u",
+        printf("%s: %s\n\tReason code: %u\n",
                 legend,
                 pkt_names[pkt],
                 msg->reason_code);
