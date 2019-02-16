@@ -54,7 +54,7 @@
 #include <signal.h>
 
 #define PEER_ADDR           { 127, 0, 0, 1 }
-#define PEER_PORT           1863
+#define PEER_PORT           1883
 
 #define CLIENT_ID           "m5_publisher"
 #define TOPIC_NAME          "greetings"
@@ -66,19 +66,24 @@ static int loop_forever;
 
 static int publish(int fd)
 {
-        uint8_t qos[] = { M5_QoS0, M5_QoS1, M5_QoS2 };
+        static struct m5_topic topic_filters[] = {
+        { .name = (uint8_t *)"srv/one", .len = 7, .options = M5_QoS1 },
+        { .name = (uint8_t *)"sensors", .len = 7, .options = M5_QoS2 },
+        { .name = (uint8_t *)"doors",   .len = 5, .options = M5_QoS0 },
+        { .name = NULL } };
+
         struct m5_publish msg = { 0 };
         static uint16_t packet_id = 1;
         static int i = -1;
         int rc;
 
-        i = (i + 1) % sizeof(qos);
+        i = (i + 1) % 3;
 
         msg.payload = (uint8_t *)PUBLISH_PAYLOAD;
         msg.payload_len = strlen(PUBLISH_PAYLOAD);
-        msg.topic_name = (uint8_t *)TOPIC_NAME;
-        msg.topic_name_len = strlen(TOPIC_NAME);
-        msg.qos = qos[i];
+        msg.topic_name = topic_filters[i].name;
+        msg.topic_name_len = topic_filters[i].len;
+        msg.qos = topic_filters[i].options;
 
         if (msg.qos != M5_QoS0) {
                 msg.packet_id = packet_id;
@@ -120,7 +125,7 @@ static int publisher(void)
 
 lb_close:
         printf("Connection closed\n");
-        tcp_disconnect(socket_fd);
+        client_disconnect(socket_fd, M5_RC_NORMAL_DISCONNECTION);
 
 lb_exit:
         return rc;
