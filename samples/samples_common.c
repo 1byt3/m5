@@ -308,17 +308,17 @@ lb_error_disconnect:
         return 0;
 }
 
-#define PACK_UNPACK(pre, packet, m5_type, ...)                                \
-static int pre ## _ ## packet(struct m5_ctx *ctx, struct app_buf *buf,        \
-                              void *_msg, struct m5_prop *prop)                \
-{                                                                        \
-        m5_type *msg;                                                        \
-                                                                        \
-        (void)prop;                                                        \
-        (void)_msg;                                                        \
-        (void)msg;                                                        \
-        msg = (m5_type *)_msg;                                                \
-        return m5_ ## pre ## _ ## packet(ctx, buf, ## __VA_ARGS__);        \
+#define PACK_UNPACK(pre, packet, m5_type, ...)                              \
+static int pre ## _ ## packet(struct m5_ctx *ctx, struct app_buf *buf,      \
+                              void *_msg, struct m5_prop *prop)             \
+{                                                                           \
+        m5_type *msg;                                                       \
+                                                                            \
+        (void)prop;                                                         \
+        (void)_msg;                                                         \
+        (void)msg;                                                          \
+        msg = (m5_type *)_msg;                                              \
+        return m5_ ## pre ## _ ## packet(ctx, buf, ## __VA_ARGS__);         \
 }
 
 PACK_UNPACK(pack, connect, struct m5_connect, msg, prop)
