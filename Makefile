@@ -73,7 +73,7 @@ dirs:
 $(M5_OBJ):		\
 	$(M5_SRC)/m5.c	\
 	$(M5_SRC)/m5.h
-	$(CC) $(CLAGS) $(M5_INC) -c -o $@ $<
+	$(CC) $(CFLAGS) $(M5_INC) -c -o $@ $<
 
 build_tests:
 	cd $(TESTS_DIR) && $(MAKE)
