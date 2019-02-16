@@ -55,7 +55,7 @@
 #include <signal.h>
 
 #define LISTEN_ADDR         { 127, 0, 0, 1 }
-#define LISTEN_PORT         1863
+#define LISTEN_PORT         1883
 
 #define PUBLISH_PAYLOAD     "Hello, World!"
 
